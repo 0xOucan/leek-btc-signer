@@ -1,0 +1,168 @@
+# Roadmap
+
+Leek BTC Signer is a minimalist, stateless, air-gapped Bitcoin signer for the
+ESP32-S3. It follows SeedSigner's logic and flows on a 128x64 OLED with an EC11
+rotary encoder.
+
+**Sources:**
+- **SeedSigner** (`../seedsignerrefs/seedsigner`): behaviour, flows and test vectors.
+- **LeekWallet** (`../seedsignerrefs/LeekWallet`): the hardware platform.
+
+Every task has an ID, its dependencies, a done-condition, and the cheapest
+**tier** that can prove it:
+
+- **H**: host `sim/`
+- **Q**: QEMU
+- **B**: the board
+
+Tiers are described in [docs/TESTING.md](docs/TESTING.md). A task is done when
+its condition passes at that tier, not when the code is written.
+
+---
+
+## Decisions
+
+| Topic | Decision |
+|---|---|
+| Hardware | ESP32-S3-WROOM-1-N16R8 CAM + OV5640, 0.96" SSD1306, 4 fixed buttons + EC11 ([docs/HARDWARE.md](docs/HARDWARE.md)) |
+| Language / SDK | C, ESP-IDF 5.5 through PlatformIO `espressif32@6.12.0`, all components vendored, no network at build time |
+| Bitcoin | libwally-core + libsecp256k1 (schnorrsig, extrakeys). No pure-C fallback secp: fail the build instead |
+| UI | Custom C renderer on LeekWallet's `oled-core`. Menu tree and labels mirror SeedSigner |
+| State | Stateless by default. Opt-in vault (LeekWallet's) for a persistent seed, behind a warning |
+| Radios | Wi-Fi, Bluetooth and TinyUSB compiled out of every non-dev build |
+| Testing | Host first, then QEMU for anything that must run on the real image, then the board |
+| License | Apache-2.0. Ported SeedSigner code and vectors keep their MIT notice |
+| Commits | [joelparkerhenderson/git-commit-message](https://github.com/joelparkerhenderson/git-commit-message), template in `.gitmessage.txt` |
+
+## Not in scope
+
+- **Networking of any kind.** That includes OTA over radio.
+- **USB data while a seed is loaded.** USB is for flashing and dev builds only.
+- **Altcoins.** LeekWallet covers EVM; this device is Bitcoin only.
+- **Languages that need non-Latin glyphs.** They do not fit at 128x64.
+
+---
+
+## Phase 0: Platform bring-up
+
+| ID | Task | Deps | Done when | Tier |
+|---|---|---|---|---|
+| T0 | PlatformIO skeleton with these environments: `s3cam` (board), `s3cam-qemu` (SPIRAM=n, UART0 console, harness), `s3cam-dev` (USB console, logs). `sdkconfig.defaults` + per-env overlays. `partitions.csv` 16 MB | — | All three environments build from a clean clone with no network once the platform is installed | Q |
+| T1 | Release sdkconfig with radios out: `CONFIG_BT_ENABLED=n`, no Wi-Fi, no TinyUSB. Plus a script that fails if the release image contains radio symbols | T0 | `scripts/check-radios.sh` passes on `s3cam` and fails on a deliberately broken config | Q |
+| T2 | Carry over `board.h` (S3CAM only, plus EC11 pins 38/39/40), `oled.c`, `oled-core.c`, `button.c` from LeekWallet | T0 | Boots headless under QEMU and logs "display absent, continuing" | Q |
+| T3 | Carry over `sim/` (Makefile, shims, fake OLED/NVS/input), with the EVM suites removed | T2 | `make -C sim test` is green | H |
+| T4 | EC11 driver on PCNT (quadrature, glitch filter, one event per detent) plus the push switch | T2 | Board: 100 detents each way produce exactly 100 events, and no events come from a hard tap | B |
+| T5 | Unified input layer: encoder and K1–K4 → `INPUT_UP/DOWN/PGUP/PGDN/BACK/OK/BACK_HOLD`. Plus `fake_encoder` | T2, T3 | Host test: each event from either source has the same effect on a menu | H |
+| T6 | QEMU harness (`LBS_QEMU_HARNESS`): `K`/`Q` input and `F`/`S` frame output on UART0. `scripts/qemu.sh`, `scripts/qemu-flow.py` | T2, T5 | A pexpect script boots the image, scrolls a menu, and reads back the expected frame | Q |
+| T7 | Release check: harness symbols absent from `s3cam` | T6 | `scripts/check-release.sh` fails if `qemu_harness_` is found in the release ELF | Q |
+| T8 | Carry over `entropy.c`, `rand_esp32.c` (health tests, fail closed). In the QEMU env, a marked test RNG | T2 | Host: the health tests reject stuck and biased sources. Board: `entropy_dump_for_analysis` runs | H, B |
+| T9 | Carry over the camera: `camera.c`, `viewfinder.c`, quirc, esp32-camera, PSRAM octal config | T2 | Board: the preview shows on the OLED and a static QR decodes | B |
+| T10 | Home screen: Scan / Seeds / Tools / Settings on the new input layer | T5 | Host screenshot plus a QEMU flow: navigate all four and back | H, Q |
+| T11 | `scripts/check.sh`: host suites, QEMU smoke flow, radio check, release check | T1, T3, T6, T7 | One command, green | H, Q |
+
+**Phase check:** the board boots to the home menu, the encoder and the buttons
+both navigate it, the camera preview works, and `check.sh` is green.
+
+## Phase 1: Bitcoin core, no UI
+
+| ID | Task | Deps | Done when | Tier |
+|---|---|---|---|---|
+| T12 | Vendor libsecp256k1 (ecdsa, schnorrsig, extrakeys) and libwally-core as ESP-IDF components. Build for host and target | T0 | Builds in both; flash cost recorded here | H, Q |
+| T13 | Decide what trezor-crypto still does (BIP39 wordlist and entry helpers?) or drop it. One secp256k1 implementation only | T12 | Decision recorded; no duplicate secp linked (checked by symbol) | Q |
+| T14 | `btc/seed.c`: mnemonic and passphrase → seed and master fingerprint. Keys live only in internal RAM; `seed_clear()` wipes them | T12 | BIP39 official vectors plus SeedSigner fingerprint vectors | H, Q |
+| T15 | `btc/keys.c`: xpub per script type (Native Segwit, Nested Segwit, Legacy, Taproot), single and multisig paths, custom paths; SLIP-132 handling as SeedSigner does it | T14 | Ported `test_embit_utils` vectors | H |
+| T16 | `btc/address.c`: receive and change addresses per script type | T15 | Ported vectors | H |
+| T17 | `btc/seedqr.c`: standard and compact encode and decode | T14 | Ported `test_seedqr`, including null bytes | H |
+| T18 | `btc/dice.c`: dice → mnemonic (50/99 rolls), final word, coin-flip final word | T14 | Ported `test_mnemonic_generation`, including the Coldcard check | H |
+| T19 | `btc/psbt_review.c`: parse with libwally, then compute what SeedSigner's `psbt_parser.py` computes: spend, change, fee, OP_RETURN, input ownership, and the forgery and ownership checks | T15, T16 | Ported `test_psbt_parser` (all script types, change, OP_RETURN, high fee, forgery cases) | H |
+| T20 | `btc/sign.c`: sign the reviewed PSBT (ECDSA + Taproot key path) | T19 | Ported vectors; signatures verify under libsecp256k1 | H |
+| T21 | Run the Bitcoin vectors on the target. The same suites are compiled into the QEMU image and report over UART0 | T14–T20, T6 | Same results on Xtensa as on the host | Q |
+
+**Phase check:** every ported SeedSigner vector passes on the host **and**
+under QEMU.
+
+## Phase 2: QR input and output
+
+| ID | Task | Deps | Done when | Tier |
+|---|---|---|---|---|
+| T22 | Remove LeekWallet's `ur:`-only filter. Raw quirc payload out, including byte mode | T9 | Board: a CompactSeedQR decodes to the right 16 or 32 bytes | B |
+| T23 | `qr/detect.c`: port of SeedSigner's `detect_segment_type`. Recognizes: SeedQR standard/compact, mnemonic, 4-letter mnemonic, UR, BBQr, Specter `pXofY`, base64/base43 PSBT, address/BIP21, `settings::v1`, `signmessage` | T21 | Ported `test_decodepsbtqr` type detection | H |
+| T24 | Multi-part assembly: UR crypto-psbt / crypto-account / crypto-output / bytes (LeekWallet's fountain code), BBQr (H, 2, Z), Specter. Buffers come from PSRAM with a capped internal fallback | T23 | Ported `test_decodepsbtqr` (large multi-part included) | H, Q |
+| T25 | QR encoder: a raw-bytes mode (CompactSeedQR) next to text mode | — | Encode then decode round trip in host tests | H |
+| T26 | Output: UR crypto-psbt and crypto-account through `qr-out`, with frame size and density modes tuned for 128x64 | T24, T25 | Ported `test_encodepsbtqr` | H |
+| T27 | Air-gap round trip with Sparrow (desktop webcam) and one phone wallet. Measure frames needed and read rate | T22, T26, T20 | Signed PSBT accepted by Sparrow. Readability result recorded; if the webcam fails, evaluate the 2.42" SSD1309 | B |
+
+**Phase check:** a full round trip completes on the bench, and readability is
+measured.
+
+## Phase 3: UI framework
+
+| ID | Task | Deps | Done when | Tier |
+|---|---|---|---|---|
+| T28 | Screen engine: a screen table with render, input and exit hook (secrets wiped on exit), plus a back stack. This replaces LeekWallet's 7k-line `ui.c` | T5 | Host test: a back stack of 10 levels returns home; exit hooks fire on every path | H |
+| T29 | Components: list menu, text pager, address formatter (groups of 4, 2–3 rows), BTC/sats amount, warning and dire-warning screens, "working…" frame | T28 | Host screenshots reviewed | H |
+| T30 | Character wheel for passphrase and custom derivation path, driven by the encoder | T28 | Every printable ASCII character is reachable; press budget measured | H |
+| T31 | QR display component: static, animated, SeedQR at 2x, and a zoomed transcription view moving zone by zone | T25, T28 | Host screenshots; board scan test | H, B |
+| T32 | Viewfinder screen: progress bar, decode-status mark | T9, T24 | Board: a progress bar fills while scanning a UR PSBT | B |
+| T33 | Secret placement: every buffer that holds seed, passphrase or key data is `MALLOC_CAP_INTERNAL` or static, never PSRAM | T28 | Host and QEMU test: the allocator wrapper refuses SPIRAM for tagged allocations | H, Q |
+
+## Phase 4: First version (single-sig)
+
+Each flow mirrors SeedSigner's `test_flows_*` and is tested as a QEMU flow.
+
+| ID | Task | Deps | Done when | Tier |
+|---|---|---|---|---|
+| T34 | Seeds → Scan SeedQR / Enter 12 or 24 words (LeekWallet `mnemonic-entry.c`) → fingerprint confirm | T17, T29 | QEMU flow, including the wrong-checksum path | Q |
+| T35 | Tools → New seed: dice 50/99, final-word calculator | T18, T29 | QEMU flow | Q |
+| T36 | Passphrase: add, review, change, clear | T30 | QEMU flow; secrets wiped on exit | H, Q |
+| T37 | Backup: show words (paged, with warning), backup quiz, export SeedQR + transcription | T31 | QEMU flow; board scan of the displayed SeedQR | Q, B |
+| T38 | Export xpub: script type → UR crypto-account animated | T15, T26 | QEMU flow, checked against vectors | Q |
+| T39 | Scan → PSBT: pick seed by fingerprint → overview → each output → change → fee → sign → UR out | T19, T20, T26, T29 | QEMU flow on the PSBT vectors, including every warning path | Q |
+| T40 | Scan → address: verify against single-sig paths | T16 | QEMU flow | Q |
+| T41 | Settings in RAM: network, script types, denomination, QR density, privacy warnings. SettingsQR import | T23 | QEMU flow with ported `test_settingsqr_decoder` | H, Q |
+| T42 | End-to-end on hardware: a new seed by dice, xpub into Sparrow, receive (testnet/signet), sign and broadcast from Sparrow | T34–T41 | A broadcast testnet/signet transaction, recorded with date | B |
+
+**Phase check:** T42.
+
+## Phase 5: Optional vault
+
+| ID | Task | Deps | Done when | Tier |
+|---|---|---|---|---|
+| T43 | Carry over LeekWallet `pin.c`, `vault-kdf.c`, `vault-crypt.c`, `device-wipe.c`, and the attempt counter that survives power cuts | T28 | LeekWallet's vault and PIN suites pass here | H |
+| T44 | Settings → Vault: off by default; enabling it shows a dire warning explaining offline attack risk without flash encryption | T43 | QEMU flow | Q |
+| T45 | Release builds refuse to enable the vault unless flash encryption is active | T43 | QEMU: the plain image refuses, the encrypted image allows; `qemu-read-flash.sh` finds no mnemonic in NVS | Q |
+| T46 | KDF iteration count measured on the board | T43 | Unlock time recorded | B |
+
+## Phase 6: Advanced features
+
+| ID | Task | Deps | Tier |
+|---|---|---|---|
+| T47 | Multisig: descriptor import (Specter JSON, generic descriptor, UR output, Coldcard config); multisig PSBT review, change check against the descriptor | T39 | H, Q |
+| T48 | BIP-85 child seeds | T14 | H, Q |
+| T49 | Message signing (`signmessage`, SeedSigner format) | T14 | H, Q |
+| T50 | Electrum seeds (off by default) | T14 | H |
+| T51 | Address explorer (receive and change lists) | T16 | Q |
+| T52 | Camera-noise entropy, mixed in and never substituted | T9, T8 | H, B |
+| T53 | BBQr output | T26 | H |
+| T54 | Further Latin-script languages | T29 | H |
+
+## Phase 7: Hardening and release
+
+| ID | Task | Deps | Done when | Tier |
+|---|---|---|---|---|
+| T55 | Secure boot v2 + flash encryption, rehearsed end to end (LeekWallet `qemu-secure.sh` flow) | T45 | Tampered image refuses to boot | Q |
+| T56 | JTAG disable and download-mode policy for release | T55 | Documented and verified | Q |
+| T57 | Burn procedure on a dedicated test board | T55, T56 | A board boots signed and encrypted; unsigned firmware refuses | B |
+| T58 | Entropy statistics on real silicon (dieharder) | T8 | Results recorded | B |
+| T59 | Reproducible build: pinned toolchain, `CONFIG_APP_REPRODUCIBLE_BUILD`, two clean builds give identical hashes; signed SHA256SUMS | T11 | `scripts/repro-verify.sh` passes in CI | Q |
+| T60 | Secret-lifetime audit (in the LeekWallet AUDIT style) | T42 | `AUDIT.md` written; findings fixed or tracked | H, Q |
+| T61 | User guide and assembly guide, with SeedSigner credited | T42 | Someone else can build and use one | — |
+
+---
+
+## Critical path
+
+T0 → T2 → T5 → T6 → T12 → T14 → T15 → T19 → T20 → T21 → T24 → T26 → T28 → T39 → T42
+
+The hardware tasks T4, T9, T22 and T27 run beside it whenever the board is on the
+bench. Each one is a leaf that unblocks only its own check.

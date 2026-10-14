@@ -1,0 +1,23 @@
+Leek BTC Signer
+Copyright 2026 0xoucan
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Platform code (display, buttons, camera pipeline, BC-UR, entropy, test
+harness) is carried over from the LeekWallet project by the same author.
+
+Inspiration and acknowledgement
+-------------------------------
+Leek BTC Signer is an independent project inspired by SeedSigner
+(https://seedsigner.com, https://github.com/SeedSigner/seedsigner). Its
+stateless design, menu structure, SeedQR format and signing flows follow
+SeedSigner's. It is not affiliated with or endorsed by the SeedSigner project.
+
+Where SeedSigner code or test vectors are ported, they remain under SeedSigner's
+MIT license:
+
+  - SeedSigner (MIT)
+      Copyright (c) 2021 SeedSigner
+
+Third-party components bundled with this product are listed, with their
+licenses, in THIRD-PARTY-LICENSES.md as they are added.
