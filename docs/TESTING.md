@@ -29,6 +29,20 @@ LeekWallet's `sim/` harness is carried over, with these additions:
 - **Flow tests.** SeedSigner's `tests/test_flows_*.py` translated into scripted
   input sequences against the screen graph.
 
+### Desktop simulator
+
+`sim/leek-sim` (SDL2) runs the same UI and flow code as the firmware in a window
+at the selected profile's exact resolution and colors. This is how the color
+profiles are built and reviewed before a module is in hand.
+
+| Key | Input |
+|---|---|
+| ↑ / ↓ | Encoder turn |
+| Enter | Encoder push |
+| Esc | BACK (K3 on `oled`, K0 on `tft*`) |
+| PgUp / PgDn | K1 / K2 (`oled` only) |
+| `q` | Feed a QR payload from a file, as if the camera had decoded it |
+
 ## Tier 2: QEMU
 
 Espressif's QEMU fork (`qemu-system-xtensa`, `esp_develop_9.2.2` or later)

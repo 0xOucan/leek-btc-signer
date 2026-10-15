@@ -5,8 +5,8 @@ ESP32-S3. It follows SeedSigner's logic and flows on a 128x64 OLED with an EC11
 rotary encoder.
 
 **Sources:**
-- **SeedSigner** (`../seedsignerrefs/seedsigner`): behaviour, flows and test vectors.
-- **LeekWallet** (`../seedsignerrefs/LeekWallet`): the hardware platform.
+- **SeedSigner** ([github.com/SeedSigner/seedsigner](https://github.com/SeedSigner/seedsigner)): behaviour, flows and test vectors.
+- **LeekWallet** (same author): the hardware platform.
 
 Every task has an ID, its dependencies, a done-condition, and the cheapest
 **tier** that can prove it:
@@ -58,7 +58,8 @@ its condition passes at that tier, not when the code is written.
 | T4 | EC11 driver on PCNT (quadrature, glitch filter, one event per detent) plus the push switch | T2 | Board: 100 detents each way produce exactly 100 events, and no events come from a hard tap | B |
 | T5 | Unified input layer: encoder, K1–K4 and K0 → `INPUT_UP/DOWN/PGUP/PGDN/BACK/OK/BACK_HOLD`. Plus `fake_encoder` | T2, T3 | Host test: each event from either source has the same effect on a menu | H |
 | T5a | Host screenshots for every profile: the fake panel writes PBM for `oled` and PPM at the real resolution for `tft*` | T2a, T3 | `make -C sim shots PROFILE=tft240` writes reviewable images | H |
-| T6 | QEMU harness (`LBS_QEMU_HARNESS`): `K`/`Q` input and `F`/`S` frame output on UART0, for whichever profile the image was built for. `scripts/qemu.sh`, `scripts/qemu-flow.py` | T2, T5 | A pexpect script boots the image, scrolls a menu, and reads back the expected frame | Q |
+| T5b | Desktop simulator (SDL2): the real UI and flow code in a window at the profile's exact resolution and colors. Arrow keys = encoder, Enter = push, Esc = BACK, PgUp/PgDn = K1/K2. QR payloads are fed from files or the command line as if the camera had decoded them. This is how the color profiles are developed before a module is in hand | T5a | `sim/leek-sim --profile tft240` runs every Phase 4 flow by hand; the same build saves screenshots | H |
+| T6 | QEMU harness (`LBS_QEMU_HARNESS`): `K`/`Q` input and `F`/`S` frame output on UART0, for whichever profile the image was built for. `scripts/qemu.sh`, `scripts/qemu-flow.py`, and `scripts/qemu-view.py`, which shows the streamed frames live in a window | T2, T5 | A pexpect script boots the image, scrolls a menu, and reads back the expected frame | Q |
 | T7 | Release check: harness symbols absent from `s3cam` | T6 | `scripts/check-release.sh` fails if `qemu_harness_` is found in the release ELF | Q |
 | T8 | Carry over `entropy.c`, `rand_esp32.c` (health tests, fail closed). In the QEMU env, a marked test RNG | T2 | Host: the health tests reject stuck and biased sources. Board: `entropy_dump_for_analysis` runs | H, B |
 | T9 | Carry over the camera: `camera.c`, `viewfinder.c`, quirc, esp32-camera, PSRAM octal config | T2 | Board: the preview shows on the OLED and a static QR decodes | B |
