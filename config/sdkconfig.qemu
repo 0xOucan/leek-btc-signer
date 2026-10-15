@@ -1,0 +1,12 @@
+# QEMU overlay: Espressif's esp32s3 machine.
+#
+# It has no USB-Serial-JTAG model, so a USB console is silent and looks like
+# a hang (LeekWallet docs/QEMU.md). UART0 is the console and the test
+# harness channel (T6).
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=n
+CONFIG_ESP_CONSOLE_USB_CDC=n
+CONFIG_ESP_CONSOLE_UART_NUM=0
+
+# PSRAM is not emulated (espressif/qemu#129).
+CONFIG_SPIRAM=n

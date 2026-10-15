@@ -1,0 +1,11 @@
+# Leek BTC Signer partition table (16 MB flash)
+#
+# nvs is empty in the stateless default. It holds settings only if the user
+# turns them on, and the vault only if the user opts in (Phase 5). Resizing
+# it later invalidates its contents, so it is sized for the vault now.
+#
+# No phy_init: the radios are never started.
+#
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+factory,  app,  factory, 0x10000,  0x400000,

@@ -1,0 +1,46 @@
+# Leek BTC Signer - base configuration, shared by every environment.
+# Per-environment overlays live in config/: sdkconfig.s3cam, sdkconfig.release,
+# sdkconfig.qemu. They are kept out of the root because PlatformIO writes its
+# generated config to sdkconfig.<env>, and an env named s3cam would overwrite an
+# overlay named sdkconfig.s3cam.
+
+# Flash: the board reports 16 MB.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+CONFIG_ESPTOOLPY_FLASHMODE_DIO=y
+CONFIG_ESPTOOLPY_FLASHMODE="dio"
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_ESPTOOLPY_FLASHFREQ="80m"
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
+
+# 160 MHz: LeekWallet measured 240 MHz running hot beside the OV5640.
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=160
+CONFIG_FREERTOS_HZ=1000
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=10
+
+# No radios, ever. SeedSigner OS removes networking from the kernel; the
+# equivalent here is never building the stacks. scripts/check-radios.sh (T1)
+# verifies the result from the ELF rather than trusting these lines.
+#
+# There is deliberately no CONFIG_ESP_WIFI_ENABLED=n. In IDF 5.5 that symbol
+# has no prompt: it means "this chip has Wi-Fi", is always y on the S3, and a
+# defaults line setting it is silently ignored. Wi-Fi stays out because
+# nothing calls it, and the ELF check is what proves that.
+CONFIG_BT_ENABLED=n
+CONFIG_TINYUSB_ENABLED=n
+
+# Console: USB-Serial-JTAG for dev builds. Release and QEMU override it.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_UART_DEFAULT=n
+CONFIG_ESP_CONSOLE_USB_CDC=n
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LOG_DEFAULT_LEVEL=3
+
+# No PSRAM unless the board overlay enables it.
+CONFIG_SPIRAM=n
+
+CONFIG_NVS_ENCRYPTION=n
+CONFIG_APP_REPRODUCIBLE_BUILD=y

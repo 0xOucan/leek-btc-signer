@@ -1,0 +1,9 @@
+# Release overlay: the image that holds seeds.
+#
+# No console at all, as SeedSigner OS has no serial console. A dev build
+# (s3cam-dev) is a separate image, never this one with logs turned back on.
+CONFIG_ESP_CONSOLE_NONE=y
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=n
+CONFIG_ESP_CONSOLE_UART_DEFAULT=n
+CONFIG_LOG_DEFAULT_LEVEL_NONE=y
+CONFIG_LOG_DEFAULT_LEVEL=0
