@@ -24,10 +24,12 @@ its condition passes at that tier, not when the code is written.
 
 | Topic | Decision |
 |---|---|
-| Hardware | ESP32-S3-WROOM-1-N16R8 CAM + OV5640, 0.96" SSD1306, 4 fixed buttons + EC11 ([docs/HARDWARE.md](docs/HARDWARE.md)) |
+| Hardware | ESP32-S3-WROOM-1-N16R8 CAM + OV5640 ([docs/HARDWARE.md](docs/HARDWARE.md)) |
+| Display | Build-time profiles in one codebase, with no per-display branch: `oled` (SSD1306 128x64, EC11 + K1–K4, on the bench) and `tft240` / `tft320` / `tft160` (ST7789 / ST7735S color modules with EC11 + K0). `tft240` is the preferred color target |
+| Input | Every screen works with turn + push + BACK alone. Extra keys are shortcuts only |
 | Language / SDK | C, ESP-IDF 5.5 through PlatformIO `espressif32@6.12.0`, all components vendored, no network at build time |
 | Bitcoin | libwally-core + libsecp256k1 (schnorrsig, extrakeys). No pure-C fallback secp: fail the build instead |
-| UI | Custom C renderer on LeekWallet's `oled-core`. Menu tree and labels mirror SeedSigner |
+| UI | Custom C renderer. Screens describe content; each display profile lays it out. Colors are roles (`fg`, `bg`, `accent`, `ok`, `warning`, `danger`, `muted`), mapped to 1-bit on the OLED and to a SeedSigner-like palette on the TFTs. Menu tree and labels mirror SeedSigner |
 | State | Stateless by default. Opt-in vault (LeekWallet's) for a persistent seed, behind a warning |
 | Radios | Wi-Fi, Bluetooth and TinyUSB compiled out of every non-dev build |
 | Testing | Host first, then QEMU for anything that must run on the real image, then the board |
@@ -50,14 +52,17 @@ its condition passes at that tier, not when the code is written.
 | T0 | PlatformIO skeleton with these environments: `s3cam` (board), `s3cam-qemu` (SPIRAM=n, UART0 console, harness), `s3cam-dev` (USB console, logs). `sdkconfig.defaults` + per-env overlays. `partitions.csv` 16 MB | — | All three environments build from a clean clone with no network once the platform is installed | Q |
 | T1 | Release sdkconfig with radios out: `CONFIG_BT_ENABLED=n`, no Wi-Fi, no TinyUSB. Plus a script that fails if the release image contains radio symbols | T0 | `scripts/check-radios.sh` passes on `s3cam` and fails on a deliberately broken config | Q |
 | T2 | Carry over `board.h` (S3CAM only, plus EC11 pins 38/39/40), `oled.c`, `oled-core.c`, `button.c` from LeekWallet | T0 | Boots headless under QEMU and logs "display absent, continuing" | Q |
+| T2a | Display interface: panel driver ops (init, flush rect, brightness), a framebuffer of palette indices (1 bpp `oled`, 4 bpp `tft*`) in internal RAM, role palette per profile. `oled.c` becomes the first panel driver behind it | T2 | `oled` profile draws through the interface; host test fills every role and checks the indices | H |
+| T2b | Font set per profile: LeekWallet's 5x7 for `oled`; pre-rasterized anti-aliased fonts (body / title / mono) for `tft*`, Latin only. Source fonts and rasterizer script live in the repo | T2a | Rasterizer reproduces identical output from the sources | H |
 | T3 | Carry over `sim/` (Makefile, shims, fake OLED/NVS/input), with the EVM suites removed | T2 | `make -C sim test` is green | H |
 | T4 | EC11 driver on PCNT (quadrature, glitch filter, one event per detent) plus the push switch | T2 | Board: 100 detents each way produce exactly 100 events, and no events come from a hard tap | B |
-| T5 | Unified input layer: encoder and K1–K4 → `INPUT_UP/DOWN/PGUP/PGDN/BACK/OK/BACK_HOLD`. Plus `fake_encoder` | T2, T3 | Host test: each event from either source has the same effect on a menu | H |
-| T6 | QEMU harness (`LBS_QEMU_HARNESS`): `K`/`Q` input and `F`/`S` frame output on UART0. `scripts/qemu.sh`, `scripts/qemu-flow.py` | T2, T5 | A pexpect script boots the image, scrolls a menu, and reads back the expected frame | Q |
+| T5 | Unified input layer: encoder, K1–K4 and K0 → `INPUT_UP/DOWN/PGUP/PGDN/BACK/OK/BACK_HOLD`. Plus `fake_encoder` | T2, T3 | Host test: each event from either source has the same effect on a menu | H |
+| T5a | Host screenshots for every profile: the fake panel writes PBM for `oled` and PPM at the real resolution for `tft*` | T2a, T3 | `make -C sim shots PROFILE=tft240` writes reviewable images | H |
+| T6 | QEMU harness (`LBS_QEMU_HARNESS`): `K`/`Q` input and `F`/`S` frame output on UART0, for whichever profile the image was built for. `scripts/qemu.sh`, `scripts/qemu-flow.py` | T2, T5 | A pexpect script boots the image, scrolls a menu, and reads back the expected frame | Q |
 | T7 | Release check: harness symbols absent from `s3cam` | T6 | `scripts/check-release.sh` fails if `qemu_harness_` is found in the release ELF | Q |
 | T8 | Carry over `entropy.c`, `rand_esp32.c` (health tests, fail closed). In the QEMU env, a marked test RNG | T2 | Host: the health tests reject stuck and biased sources. Board: `entropy_dump_for_analysis` runs | H, B |
 | T9 | Carry over the camera: `camera.c`, `viewfinder.c`, quirc, esp32-camera, PSRAM octal config | T2 | Board: the preview shows on the OLED and a static QR decodes | B |
-| T10 | Home screen: Scan / Seeds / Tools / Settings on the new input layer | T5 | Host screenshot plus a QEMU flow: navigate all four and back | H, Q |
+| T10 | Home screen: Scan / Seeds / Tools / Settings on the new input layer, in `oled` and `tft240` | T5, T5a | Host screenshots for both, plus a QEMU flow: navigate all four and back | H, Q |
 | T11 | `scripts/check.sh`: host suites, QEMU smoke flow, radio check, release check | T1, T3, T6, T7 | One command, green | H, Q |
 
 **Phase check:** the board boots to the home menu, the encoder and the buttons
@@ -90,6 +95,7 @@ under QEMU.
 | T24 | Multi-part assembly: UR crypto-psbt / crypto-account / crypto-output / bytes (LeekWallet's fountain code), BBQr (H, 2, Z), Specter. Buffers come from PSRAM with a capped internal fallback | T23 | Ported `test_decodepsbtqr` (large multi-part included) | H, Q |
 | T25 | QR encoder: a raw-bytes mode (CompactSeedQR) next to text mode | — | Encode then decode round trip in host tests | H |
 | T26 | Output: UR crypto-psbt and crypto-account through `qr-out`, with frame size and density modes tuned for 128x64 | T24, T25 | Ported `test_encodepsbtqr` | H |
+| T26a | TFT panel drivers: ST7789 (240x240 with row offset, 320x240) and ST7735S (128x160, tab variant), SPI with DMA strip flush; camera preview straight from PSRAM to the panel | T2a | Board, once a module is in hand: every role color correct, no offset artifacts, preview at a usable frame rate | B |
 | T27 | Air-gap round trip with Sparrow (desktop webcam) and one phone wallet. Measure frames needed and read rate | T22, T26, T20 | Signed PSBT accepted by Sparrow. Readability result recorded; if the webcam fails, evaluate the 2.42" SSD1309 | B |
 
 **Phase check:** a full round trip completes on the bench, and readability is
@@ -100,11 +106,11 @@ measured.
 | ID | Task | Deps | Done when | Tier |
 |---|---|---|---|---|
 | T28 | Screen engine: a screen table with render, input and exit hook (secrets wiped on exit), plus a back stack. This replaces LeekWallet's 7k-line `ui.c` | T5 | Host test: a back stack of 10 levels returns home; exit hooks fire on every path | H |
-| T29 | Components: list menu, text pager, address formatter (groups of 4, 2–3 rows), BTC/sats amount, warning and dire-warning screens, "working…" frame | T28 | Host screenshots reviewed | H |
+| T29 | Components, each with an `oled` and a `tft*` layout: list menu, text pager, address formatter (groups of 4, 2–3 rows), BTC/sats amount, warning and dire-warning screens, "working…" frame | T28 | Host screenshots reviewed | H |
 | T30 | Character wheel for passphrase and custom derivation path, driven by the encoder | T28 | Every printable ASCII character is reachable; press budget measured | H |
 | T31 | QR display component: static, animated, SeedQR at 2x, and a zoomed transcription view moving zone by zone | T25, T28 | Host screenshots; board scan test | H, B |
 | T32 | Viewfinder screen: progress bar, decode-status mark | T9, T24 | Board: a progress bar fills while scanning a UR PSBT | B |
-| T33 | Secret placement: every buffer that holds seed, passphrase or key data is `MALLOC_CAP_INTERNAL` or static, never PSRAM | T28 | Host and QEMU test: the allocator wrapper refuses SPIRAM for tagged allocations | H, Q |
+| T33 | Secret placement: every buffer that holds seed, passphrase or key data, **including the framebuffer**, is `MALLOC_CAP_INTERNAL` or static, never PSRAM | T28 | Host and QEMU test: the allocator wrapper refuses SPIRAM for tagged allocations | H, Q |
 
 ## Phase 4: First version (single-sig)
 
@@ -120,7 +126,7 @@ Each flow mirrors SeedSigner's `test_flows_*` and is tested as a QEMU flow.
 | T39 | Scan → PSBT: pick seed by fingerprint → overview → each output → change → fee → sign → UR out | T19, T20, T26, T29 | QEMU flow on the PSBT vectors, including every warning path | Q |
 | T40 | Scan → address: verify against single-sig paths | T16 | QEMU flow | Q |
 | T41 | Settings in RAM: network, script types, denomination, QR density, privacy warnings. SettingsQR import | T23 | QEMU flow with ported `test_settingsqr_decoder` | H, Q |
-| T42 | End-to-end on hardware: a new seed by dice, xpub into Sparrow, receive (testnet/signet), sign and broadcast from Sparrow | T34–T41 | A broadcast testnet/signet transaction, recorded with date | B |
+| T42 | End-to-end on hardware (`oled`, and `tft240` once a module is in hand): a new seed by dice, xpub into Sparrow, receive (testnet/signet), sign and broadcast from Sparrow | T34–T41 | A broadcast testnet/signet transaction, recorded with date | B |
 
 **Phase check:** T42.
 
@@ -164,5 +170,5 @@ Each flow mirrors SeedSigner's `test_flows_*` and is tested as a QEMU flow.
 
 T0 → T2 → T5 → T6 → T12 → T14 → T15 → T19 → T20 → T21 → T24 → T26 → T28 → T39 → T42
 
-The hardware tasks T4, T9, T22 and T27 run beside it whenever the board is on the
+The hardware tasks T4, T9, T22, T26a and T27 run beside it whenever the board is on the
 bench. Each one is a leaf that unblocks only its own check.

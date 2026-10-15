@@ -21,8 +21,10 @@ LeekWallet's `sim/` harness is carried over, with these additions:
   `test_seedqr`, `test_mnemonic_generation`, `test_bip85`, `test_embit_utils`,
   `test_psbt_parser` and `test_decodepsbtqr`. Each ported file names the
   SeedSigner test it came from.
-- **Screenshots.** The fake OLED writes each distinct frame as a 1-bit PBM, so
-  every screen can be reviewed without hardware. This plays the role of
+- **Screenshots for every display profile.** The fake panel writes each
+  distinct frame as a 1-bit PBM for `oled` and as a PPM at the real resolution
+  for `tft240`/`tft320`/`tft160`. Every screen can be reviewed on every profile
+  without hardware, including the color ones not yet in hand. This plays the role of
   SeedSigner's screenshot generator.
 - **Flow tests.** SeedSigner's `tests/test_flows_*.py` translated into scripted
   input sequences against the screen graph.
@@ -56,7 +58,8 @@ QEMU lacks, so whole user flows run on the real firmware image:
 host → device   K <event>          ENC+ ENC- PUSH K1 K2 K3 K4 K3HOLD
 host → device   Q <payload>        a QR payload, as if quirc had decoded it
                                    (binary payloads are hex-encoded: QH <hex>)
-device → host   F <base64 1 KB>    the framebuffer, whenever it changes
+device → host   F <base64 frame>   the framebuffer (palette indices) whenever it
+                                   changes; 1 KB for oled, up to 37.5 KB for tft320
 device → host   S <screen-id>      the current screen, for assertions
 ```
 
