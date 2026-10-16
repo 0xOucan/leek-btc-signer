@@ -44,3 +44,7 @@ CONFIG_SPIRAM=n
 
 CONFIG_NVS_ENCRYPTION=n
 CONFIG_APP_REPRODUCIBLE_BUILD=y
+
+# The UI loop runs in the main task: snprintf and the widgets' line
+# buffers need more than the 3.5 KB default.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
