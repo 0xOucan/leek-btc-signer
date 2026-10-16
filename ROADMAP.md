@@ -201,3 +201,10 @@ on the host and in QEMU.
 | T9 | Open, needs the board | Camera |
 | T10 | Done | Home, Load A Seed, Tools, Settings, I/O test, Version; the rest show the task that builds them |
 | T11 | Done | `./scripts/check.sh`: ALL CHECKS PASSED |
+
+### 2026-10-16: Phase 1 begins
+
+| Task | State | Evidence |
+|---|---|---|
+| T12 | Done | libwally-core 1.5.6 + secp256k1-zkp vendored by `scripts/vendor-libwally.sh`, pinned by commit; Elements off; one amalgamation for host and target. Linking `btc_init` alone grows the release image from 226 KB to 388 KB of flash; the full cost is recorded as more of the library is used |
+| T21 | Mechanism done | `s3cam-qemu-selftest` compiles the host's vector suites into the firmware and runs them at boot; `test_wally` (BIP-32 vector 1, BIP-84 zpub, fingerprint, bad checksum) passes on host and Xtensa |

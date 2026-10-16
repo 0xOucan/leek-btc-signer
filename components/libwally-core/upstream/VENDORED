@@ -1,0 +1,4 @@
+libwally-core release_1.5.6
+commit 0c41f38fb1c201786e9c3ac9eae4f5f80c051399
+secp256k1-zkp 45f6f0f158c5ae80a2c8a53398ea4adbf19af6dc
+fetched by scripts/vendor-libwally.sh

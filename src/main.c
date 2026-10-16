@@ -7,8 +7,11 @@
  * same queue.
  */
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "board.h"
+#include "btc-init.h"
+#include "esp_random.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
 #include "gfx.h"
@@ -22,6 +25,13 @@
 
 static const char *TAG = "lbs";
 
+/* secp256k1 context blinding. Not key material: seeds will come from the
+ * health-tested entropy pool (T8). */
+static void blinding_rand(void *buf, unsigned len)
+{
+    esp_fill_random(buf, len);
+}
+
 void app_main(void)
 {
     const esp_app_desc_t *app = esp_app_get_description();
@@ -29,6 +39,19 @@ void app_main(void)
     ESP_LOGI(TAG, "board=%s display=%s image=%s",
              BOARD_NAME, GFX_PROFILE_NAME, BOARD_IMAGE);
     screens_set_version(app->version, BOARD_NAME, GFX_PROFILE_NAME, BOARD_IMAGE);
+
+#if defined(LBS_SELFTEST)
+    /* Before btc_init: the suites initialise and clean up libwally
+     * themselves. */
+    extern int selftest_run(void);
+    selftest_run();
+#endif
+
+    if (!btc_init(blinding_rand)) {
+        /* Nothing may sign without a working library: stop here, visibly. */
+        ESP_LOGE(TAG, "libwally/secp256k1 failed to initialise");
+        abort();
+    }
 
     input_queue_init();
     /* Headless is a working state, not a failure: a loose wire should give

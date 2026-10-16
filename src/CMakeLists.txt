@@ -8,7 +8,22 @@ FILE(GLOB app_sources
     ${CMAKE_SOURCE_DIR}/src/core/*.c
     ${CMAKE_SOURCE_DIR}/src/hal/*.c)
 
+# The self-test image (T21) also compiles the host's vector suites, each
+# with its main() renamed <suite>_main for src/selftest.c to call. The flag
+# comes through cmake_extra_args because sources are chosen at configure
+# time, before any compiler flag is read.
+set(SELFTESTS test_wally)
+set(app_include "." "core" "hal")
+if(LBS_SELFTEST)
+    foreach(t ${SELFTESTS})
+        set(f ${CMAKE_SOURCE_DIR}/sim/${t}.c)
+        list(APPEND app_sources ${f})
+        set_source_files_properties(${f} PROPERTIES COMPILE_DEFINITIONS "main=${t}_main")
+    endforeach()
+    list(APPEND app_include "../sim")
+endif()
+
 idf_component_register(
     SRCS ${app_sources}
-    INCLUDE_DIRS "." "core" "hal"
+    INCLUDE_DIRS ${app_include}
 )

@@ -12,7 +12,7 @@ step "Image checks fail when they should"
 ./scripts/test-checks.sh
 
 step "Build every image"
-for env in s3cam s3cam-dev s3cam-qemu; do
+for env in s3cam s3cam-dev s3cam-qemu s3cam-qemu-selftest; do
     pio run -e "${env}" >/dev/null
     echo "built ${env}"
 done
@@ -22,6 +22,9 @@ step "No radio stack in any image"
 
 step "No QEMU harness in a board image"
 ./scripts/check-release.sh
+
+step "QEMU: the vector suites on the Xtensa build"
+./scripts/qemu.sh --env s3cam-qemu-selftest --selftest
 
 step "QEMU: boot and flows on the real image"
 ./scripts/qemu.sh --smoke
