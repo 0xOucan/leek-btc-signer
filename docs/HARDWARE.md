@@ -1,157 +1,184 @@
-# Hardware: ESP32-S3-WROOM-1-N16R8 CAM + OV5640
+# Hardware
 
-The board LeekWallet's `esp32s3cam` profile already runs on. The authoritative
-pin reference is LeekWallet's `docs/BOARD-S3CAM-PINOUT.md`, spot-checked with a
-multimeter on 2026-09-17. This file only records what Leek BTC Signer adds or
-changes.
+## The bench setup: S3 CAM board + screen kit
+
+The board is the ESP32-S3-WROOM-1-N16R8 CAM with an OV5640. It is the same
+board as LeekWallet's `esp32s3cam` profile, whose `docs/BOARD-S3CAM-PINOUT.md`
+is the authoritative pin reference, spot-checked with a multimeter. The camera,
+the microSD slot and the octal PSRAM are on the board and need no wiring.
+`src/board.h` is the firmware's copy of this page, and the two must agree.
+
+**Power every module from 3V3, never 5V.** Each module has its own pull-up
+resistors to its supply pin, and those pull the ESP32-S3's pins up to that
+voltage. The S3 is not 5 V tolerant.
 
 | Part | Spec |
 |---|---|
 | MCU | ESP32-S3, 16 MB flash, 8 MB octal PSRAM |
-| Display | SSD1306 0.96" 128x64 monochrome OLED, I2C 0x3C |
-| Camera | OV5640 over DVP, grayscale, autofocus off |
-| Input | 4 fixed buttons + EC11 rotary encoder with push switch |
-| Radios | **Not used.** Wi-Fi and Bluetooth are compiled out. |
+| Display | 1.5" OLED GME128128-01, SH1107, 128x128 monochrome, I2C 0x3C (0x3D also probed) |
+| Input | Four-button module (UP, DOWN, BACK, OK) + EC11 encoder module |
+| Camera | OV5640 over DVP, in the board's camera connector |
+| Radios | **Not used.** No Wi-Fi, Bluetooth or USB stack is linked (`scripts/check-radios.sh`) |
 
-## Pin map
+### Screen: SH1107 128x128, I2C
 
-| Function | GPIO | Origin |
+| Module | Board |
+|---|---|
+| VCC | 3V3 |
+| GND | GND |
+| SCL | GPIO21 |
+| SDA | GPIO47 |
+
+The UI uses the whole 128x128 panel (display profile `oled128`).
+
+### Four-button module: V G 1 2 3 4
+
+| Module | Board | Function |
 |---|---|---|
-| Camera (DVP + SCCB) | 4–13, 15–18 | LeekWallet, unchanged |
-| OLED SDA / SCL | 47 / 21 | LeekWallet, unchanged |
-| K1 | 1 | LeekWallet, unchanged |
-| K2 | 41 (MTDI) | LeekWallet, unchanged |
-| K3 | 14 | LeekWallet, unchanged |
-| K4 | 42 (MTMS) | LeekWallet, unchanged |
-| **EC11 A** | **39** (was SD_CLK / MTCK) | new |
-| **EC11 B** | **40** (was SD_DATA / MTDO) | new |
-| **EC11 push** | **38** (was SD_CMD) | new |
-| Status LED | 48 (WS2812) | LeekWallet, unchanged |
-| PSRAM | 35–37 | reserved |
-| USB-Serial-JTAG | 19 / 20 | dev builds only |
+| V | 3V3 | |
+| G | GND | |
+| 1 | GPIO1 | UP |
+| 2 | GPIO41 | DOWN |
+| 3 | GPIO14 | BACK; hold 3 s to clear the seed and go home |
+| 4 | GPIO42 | OK |
 
-The encoder uses the on-board microSD pins, which nothing used. That means
-**no microSD**: settings come from SettingsQR, or from NVS if the user enables
-the vault. External JTAG on 39/40 is also given up; native USB JTAG on 19/20 is
-unaffected.
+A pressed key must read **low**: pulled up, switch to GND.
 
-GPIO 43/44 are free but avoided: the on-board TX/RX LEDs sit on them and can
-load an input line.
+### Rotary encoder: EC11 module, GND + SW DT CLK
 
-**To verify on the bench:** that 38/39/40 have no pull resistors or SD-slot
-parts that fight the encoder. Remove the card from the slot.
-
-## EC11 wiring
-
-- The common pin goes to GND. A and B use internal pull-ups, active low.
-- The push switch goes to GND, with an internal pull-up.
-- Optional but recommended: 10 nF from A and from B to GND, to tame contact
-  bounce.
-- Decoded by the S3's PCNT (pulse counter) in quadrature mode, with its glitch
-  filter. No polling and no ISR per edge.
-
-## Controls
-
-The four buttons can't be removed, so each gets a role. Every screen can be
-driven from the encoder alone **or** from the buttons alone. That gives
-redundancy if one fails, and it lets LeekWallet's scripted button tests keep
-working.
-
-| Input | Role | SeedSigner equivalent |
+| Module | Board | Function |
 |---|---|---|
-| Encoder turn | Move up / down, change value | Joystick up / down |
-| Encoder push | Select / confirm | Joystick press |
-| K1 (UP) | Previous page / previous letter group | Joystick up (fast) |
-| K2 (DOWN) | Next page / next letter group | Joystick down (fast) |
-| K3 (CANCEL) | Back. Hold 3 s to clear the seed and lock | Joystick left / back |
-| K4 (ACCEPT) | Confirm (same as encoder push) | KEY / joystick press |
+| GND | GND | |
+| + | 3V3 | supply for the module's pull-ups |
+| CLK | GPIO44, the header pin labelled **RX** | encoder A |
+| DT | GPIO43, the header pin labelled **TX**, **through a 1 kΩ resistor** | encoder B |
+| SW | GPIO42, joined to button 4 | press = OK |
+
+- **Turning and pressing.** Turning the knob is UP and DOWN, one step per
+  detent; clockwise is DOWN. Pressing it is OK. SW works in parallel with
+  button 4 because both pull the line to GND.
+- **Why GPIO43/44 are free.** They are UART0, free because the console is USB
+  Serial/JTAG (dev image) or absent (release image).
+- **Why DT has a 1 kΩ resistor.** The ROM still prints its boot banner on
+  GPIO43 for a few milliseconds. If the encoder contact happened to be closed
+  then, the pin would drive into a short, and the resistor takes that instead.
+  Anything from 220 Ω to 2.2 kΩ works. Do not use 4.7 kΩ or more: against the
+  module's 10 kΩ pull-up the pin would no longer read a clean low.
+- **How the encoder is read.** A 1 ms poll feeds a quadrature state machine.
+  It is the decoder from the LeekWallet Zcash firmware, carried over with its
+  tests (`src/core/encoder.c`, `sim/test_encoder.c`). Bounce, and a half turn
+  that comes back, produce no step.
+
+### Pins that look free but are not
+
+| Pins | Taken by |
+|---|---|
+| 4–13, 15–18 | Camera |
+| 38–40 | microSD |
+| 35–37 | PSRAM |
+| 19–20 | USB |
+| 0, 3, 45, 46 | Strapping pins: a module's pull-up there can stop the board booting or flashing |
+| 2 | Power LED |
+| 48 | RGB LED |
+
+### Summary
+
+```
+GPIO47 SDA ── OLED SDA          GPIO1  ── BTN 1 (UP)
+GPIO21 SCL ── OLED SCL          GPIO41 ── BTN 2 (DOWN)
+RX(GPIO44) ── ENC CLK           GPIO14 ── BTN 3 (BACK)
+TX(GPIO43) ─1k─ ENC DT          GPIO42 ── BTN 4 (OK) + ENC SW
+3V3 ── OLED VCC, BTN V, ENC +   GND ── OLED GND, BTN G, ENC GND
+GPIO38/39/40 microSD (on board)  GPIO4-18 camera (on board)
+```
+
+## First boot: the bring-up checklist
+
+None of this has run on hardware yet. Flash the dev image, which has the USB
+console:
+
+```
+pio run -e s3cam-dev -t upload && pio device monitor -e s3cam-dev
+```
+
+Then open **Settings → I/O test**. It counts every input event and highlights
+the last one; hold BACK for 3 s to leave. Check, in order:
+
+| Check | Expected | If not |
+|---|---|---|
+| Screen lights; log says `SH1107 128x128 at 0x3C` | Menu visible | Log lists every I2C device found: check power, GND, SDA/SCL swapped, 0x3D strap |
+| Picture the right way up | Title at the top | `-DBOARD_SH1107_FLIP=1` |
+| Each button counts once per press | UP, DOWN, BACK, OK | A key that counts on release, or constantly, is active-high: `-DBOARD_BUTTONS_ACTIVE_HIGH=1` |
+| Knob clockwise | DOWN counts | `-DBOARD_ENC_REVERSE=1` |
+| One count per click | 1 per detent | Two clicks per count: `-DENCODER_HALF_STEP` |
+| Knob push | OK counts | Check the SW wire joined to GPIO42 |
+| GPIO43/44 at rest, multimeter to GND | about 3.3 V | The on-board TX/RX LEDs may load the line; report the reading |
+
+Add any flag needed to `build_flags` for the `s3cam` and `s3cam-dev`
+environments in `platformio.ini`, and record the result here with the date.
 
 ## Display profiles
 
-There is one codebase and **no long-lived branch per display**. The display is a
-build-time profile, chosen together with the board:
+There is one codebase and no branch per display. The profile is chosen at
+build time:
 
 | Profile | Panel | Resolution | Input | Status |
 |---|---|---|---|---|
-| `oled` | SSD1306 0.96", I2C | 128x64, 1-bit | EC11 + K1–K4 | The board on the bench |
-| `tft240` | ST7789, SPI | 240x240 RGB | EC11 + K0 (module) | **Preferred color target**, same resolution as SeedSigner |
-| `tft320` | ST7789, SPI | 320x240 RGB | EC11 + K0 (module) | Also supported by SeedSigner |
-| `tft160` | ST7735S, SPI | 128x160 RGB | EC11 + K0 (module) | Lowest priority |
+| `oled128` | SH1107 1.5", I2C | 128x128, 1-bit | 4 buttons + EC11 | **The bench setup, default** |
+| `oled64` | SSD1306 0.96", I2C | 128x64, 1-bit | 4 buttons + EC11 | Supported, same driver file |
+| `tft240` | ST7789, SPI | 240x240 RGB | EC11 + K0 (module) | Future; SeedSigner's resolution |
+| `tft320` | ST7789, SPI | 320x240 RGB | EC11 + K0 (module) | Future |
+| `tft160` | ST7735S, SPI | 128x160 RGB | EC11 + K0 (module) | Future, lowest priority |
 
-Screens describe content (a title, a list, a warning, a QR code). Each profile
-has its own layout that decides how to draw it. Colors are **roles**: `fg`,
-`bg`, `accent`, `ok`, `warning`, `danger`, `muted`. On the OLED they map to
-black and white, with warnings drawn inverted. On the TFTs they map to a palette
-close to SeedSigner's.
+**How a profile is applied.** Screens describe content (a title, a list, a
+message), and each profile's theme (`src/core/theme.c`) decides where it goes.
+Colors are **roles**: `fg`, `bg`, `accent`, `warning` and so on. On the OLEDs
+they map to lit or dark. On the TFTs they map to SeedSigner's own palette
+(`src/core/palette.c`). Every profile is tested and screenshotted on the host
+(`make -C sim test shots`) and can be run in the desktop simulator
+(`make -C sim sim PROFILE=TFT240`).
 
 ### Framebuffer and secrets
 
-Seed words are drawn into the framebuffer, so the framebuffer is secret and
-stays in internal RAM. It stores palette indices, not RGB565:
+Seed words are drawn into the framebuffer, so the framebuffer is secret. It is
+static, in internal RAM, and holds 4-bit palette indices rather than RGB:
 
-| Profile | Format | Size |
-|---|---|---|
-| `oled` | 1 bpp | 1 KB |
-| `tft240` | 4 bpp indexed | 28.1 KB |
-| `tft320` | 4 bpp indexed | 37.5 KB |
-| `tft160` | 4 bpp indexed | 10 KB |
+| Profile | Size |
+|---|---|
+| `oled128` | 8 KB |
+| `tft240` | 28.1 KB |
+| `tft320` | 37.5 KB |
 
-The flush converts to RGB565 one strip at a time through a small DMA buffer.
-Camera preview frames are not secret, so they go straight from PSRAM to the
-panel and bypass the indexed framebuffer.
+Panels convert the indices when they flush: page bits for the OLEDs, RGB565
+strips for the TFTs.
 
-### Color TFT modules
+### Color TFT modules (future)
 
-The three modules found share one 12-pin header with the encoder built in:
+The modules found share one 12-pin header with the encoder built in:
 
 ```
 GND VCC SCL SDA RES DC CS BLK K0 PUSH A B
 ```
 
-`SCL`/`SDA` here are SPI clock and data (MOSI), not I2C. The 240x240 module is
-sold for ESP8266 projects, but only the panel is used; no ESP8266 is involved.
-
-### TFT pin map (second S3 CAM board, without K1–K4)
-
-The camera owns GPIO 4–18 except 14. The TFT profile reuses the pins that K1–K4
-and the OLED use on the `oled` board. A board with the four buttons wired can't
-also carry a TFT.
-
-| Module pin | GPIO | Note |
-|---|---|---|
-| SCL (SPI SCK) | 47 | SPI2 through the GPIO matrix; writes at 40 MHz are fine |
-| SDA (SPI MOSI) | 21 | |
-| DC | 14 | |
-| CS | 1 | Can be tied to GND if it's the only SPI device |
-| RES | 41 | Or tie it high and use the panel's SWRESET command |
-| BLK | 2 | Shares the on-board LED_ON, which then lights with the backlight; or tie to 3V3 |
-| K0 | 42 | BACK |
-| PUSH | 38 | Same as the `oled` profile |
-| A | 39 | Same as the `oled` profile |
-| B | 40 | Same as the `oled` profile |
-
-**Unverified until the module is in hand:**
-- the header order;
-- whether K0/PUSH/A/B have pull-ups on the module;
-- whether the panel needs a column/row offset. ST7789 240x240 modules usually
-  need a row offset of 80; 128x160 ST7735S modules come in "tab" variants with
-  different offsets.
-
-### Controls on the TFT profile
+`SCL` and `SDA` are SPI clock and MOSI, not I2C. A TFT replaces the OLED and
+the four-button module, so its pins come from those. The pin map will be
+fixed when a module is in hand (T26a). The control model doesn't change:
 
 | Input | Role |
 |---|---|
-| Encoder turn | Up / down |
-| Encoder push | Select / confirm |
-| K0 | Back |
-| K0 held 3 s | Clear the seed and lock |
+| Encoder turn | UP / DOWN |
+| Encoder push | OK |
+| K0 | BACK |
 
-**Every screen must be fully usable with turn, push and BACK alone.** K1/K2 page
-keys on the `oled` board are shortcuts, never the only way to do something.
+**Every screen must be fully usable with turn, push and BACK alone.**
 
-## Known limit: QR export on 0.96"
+## Known limit: QR codes on a small OLED
 
-At 0.96", one QR module at 2x scale is about 0.34 mm. Phones read it reliably;
-laptop webcams (e.g. Sparrow on desktop) may not. Phase 2 measures this. The
-fallback is a 2.42" SSD1309, which has the same 128x64 resolution and the same
-driver family, so no UI changes are needed.
+The SH1107 is 128 px tall, which gives the QR codes room:
+
+| QR | Scale | Size |
+|---|---|---|
+| Version 3 (29 modules) | 4x | 116 px |
+| Version 6 (41 modules) | 3x | 123 px |
+
+Webcam readability is still measured on the bench in T27.

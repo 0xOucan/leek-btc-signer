@@ -39,9 +39,11 @@ profiles are built and reviewed before a module is in hand.
 |---|---|
 | ↑ / ↓ | Encoder turn |
 | Enter | Encoder push |
-| Esc | BACK (K3 on `oled`, K0 on `tft*`) |
-| PgUp / PgDn | K1 / K2 (`oled` only) |
-| `q` | Feed a QR payload from a file, as if the camera had decoded it |
+| Esc, Backspace | BACK; hold 3 s for HOLD |
+| S | Save a screenshot |
+| Q | Quit |
+
+Feeding QR payloads from files arrives with T23.
 
 ## Tier 2: QEMU
 
@@ -69,15 +71,16 @@ The harness is a `-qemu`-only driver on UART0. It replaces the three things
 QEMU lacks, so whole user flows run on the real firmware image:
 
 ```
-host → device   K <event>          ENC+ ENC- PUSH K1 K2 K3 K4 K3HOLD
+host → device   K <event>          UP DOWN OK BACK HOLD
 host → device   Q <payload>        a QR payload, as if quirc had decoded it
                                    (binary payloads are hex-encoded: QH <hex>)
 device → host   F <base64 frame>   the framebuffer (palette indices) whenever it
                                    changes; 1 KB for oled, up to 37.5 KB for tft320
 device → host   S <screen-id>      the current screen, for assertions
+device → host   A                  the event was handled and its frame sent
 ```
 
-`scripts/qemu-flow.py` uses pexpect to drive this, so a test reads like a
+`scripts/qemu-flow.py` drives this through `scripts/qemu_harness.py`, so a test reads like a
 SeedSigner flow test: scan a SeedQR, confirm the fingerprint, scan a PSBT, and
 check the signed UR that comes out.
 

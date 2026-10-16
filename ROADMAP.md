@@ -24,9 +24,9 @@ its condition passes at that tier, not when the code is written.
 
 | Topic | Decision |
 |---|---|
-| Hardware | ESP32-S3-WROOM-1-N16R8 CAM + OV5640 ([docs/HARDWARE.md](docs/HARDWARE.md)) |
-| Display | Build-time profiles in one codebase, with no per-display branch: `oled` (SSD1306 128x64, EC11 + K1–K4, on the bench) and `tft240` / `tft320` / `tft160` (ST7789 / ST7735S color modules with EC11 + K0). `tft240` is the preferred color target |
-| Input | Every screen works with turn + push + BACK alone. Extra keys are shortcuts only |
+| Hardware | ESP32-S3-WROOM-1-N16R8 CAM + OV5640, 1.5" SH1107 128x128 OLED, four-button module, EC11 ([docs/HARDWARE.md](docs/HARDWARE.md)) |
+| Display | Build-time profiles in one codebase, with no per-display branch. `oled128` (SH1107, the bench setup) is the default; `oled64` (SSD1306) shares its driver; `tft240` / `tft320` / `tft160` (ST7789 / ST7735S color modules with EC11 + K0) are for later, and `tft240` is the preferred color target |
+| Input | UP, DOWN, OK, BACK, and HOLD (BACK held 3 s). The encoder turns UP/DOWN and its push is OK, wired in parallel with the OK button. Every screen works with turn + push + BACK alone. The encoder is polled every 1 ms through the LeekWallet Zcash firmware's tested quadrature decoder rather than the PCNT |
 | Language / SDK | C, ESP-IDF 5.5 through PlatformIO `espressif32@6.12.0`, all components vendored, no network at build time |
 | Bitcoin | libwally-core + libsecp256k1 (schnorrsig, extrakeys). No pure-C fallback secp: fail the build instead |
 | UI | Custom C renderer. Screens describe content; each display profile lays it out. Colors are roles (`fg`, `bg`, `accent`, `ok`, `warning`, `danger`, `muted`), mapped to 1-bit on the OLED and to a SeedSigner-like palette on the TFTs. Menu tree and labels mirror SeedSigner |
@@ -51,14 +51,14 @@ its condition passes at that tier, not when the code is written.
 |---|---|---|---|---|
 | T0 | PlatformIO skeleton with these environments: `s3cam` (board), `s3cam-qemu` (SPIRAM=n, UART0 console, harness), `s3cam-dev` (USB console, logs). `sdkconfig.defaults` + per-env overlays. `partitions.csv` 16 MB | — | All three environments build from a clean clone with no network once the platform is installed | Q |
 | T1 | Release sdkconfig with radios out: `CONFIG_BT_ENABLED=n`, no Wi-Fi, no TinyUSB. Plus a script that fails if the release image contains radio symbols | T0 | `scripts/check-radios.sh` passes on `s3cam` and fails on a deliberately broken config | Q |
-| T2 | Carry over `board.h` (S3CAM only, plus EC11 pins 38/39/40), `oled.c`, `oled-core.c`, `button.c` from LeekWallet | T0 | Boots headless under QEMU and logs "display absent, continuing" | Q |
+| T2 | `board.h` for the S3CAM with the screen-kit wiring (SH1107 on 47/21, buttons 1/41/14/42, EC11 on 44/43). I2C OLED driver for SH1107 and SSD1306 from LeekWallet and its Zcash firmware | T0 | QEMU boots; a missing panel runs headless and logs it | Q |
 | T2a | Display interface: panel driver ops (init, flush rect, brightness), a framebuffer of palette indices (1 bpp `oled`, 4 bpp `tft*`) in internal RAM, role palette per profile. `oled.c` becomes the first panel driver behind it | T2 | `oled` profile draws through the interface; host test fills every role and checks the indices | H |
 | T2b | Font set per profile: LeekWallet's 5x7 for `oled`; pre-rasterized anti-aliased fonts (body / title / mono) for `tft*`, Latin only. Source fonts and rasterizer script live in the repo | T2a | Rasterizer reproduces identical output from the sources | H |
 | T3 | Carry over `sim/` (Makefile, shims, fake OLED/NVS/input), with the EVM suites removed | T2 | `make -C sim test` is green | H |
-| T4 | EC11 driver on PCNT (quadrature, glitch filter, one event per detent) plus the push switch | T2 | Board: 100 detents each way produce exactly 100 events, and no events come from a hard tap | B |
-| T5 | Unified input layer: encoder, K1–K4 and K0 → `INPUT_UP/DOWN/PGUP/PGDN/BACK/OK/BACK_HOLD`. Plus `fake_encoder` | T2, T3 | Host test: each event from either source has the same effect on a menu | H |
+| T4 | EC11 polled at 1 ms through the Zcash firmware's quadrature state machine; push wired with OK | T2 | Host: `test_encoder` (bounce, half turns, 100-detent spin). Board: the I/O-test checklist in docs/HARDWARE.md | H, B |
+| T5 | Unified input layer: encoder, buttons and K0 → `UP/DOWN/OK/BACK/HOLD`, with debounce, auto-repeat and BACK-hold as a pure state machine | T2, T3 | Host test: each event from either source has the same effect on a menu | H |
 | T5a | Host screenshots for every profile: the fake panel writes PBM for `oled` and PPM at the real resolution for `tft*` | T2a, T3 | `make -C sim shots PROFILE=tft240` writes reviewable images | H |
-| T5b | Desktop simulator (SDL2): the real UI and flow code in a window at the profile's exact resolution and colors. Arrow keys = encoder, Enter = push, Esc = BACK, PgUp/PgDn = K1/K2. QR payloads are fed from files or the command line as if the camera had decoded them. This is how the color profiles are developed before a module is in hand | T5a | `sim/leek-sim --profile tft240` runs every Phase 4 flow by hand; the same build saves screenshots | H |
+| T5b | Desktop simulator (SDL2): the real UI and flow code in a window at the profile's exact resolution and colors. Arrow keys = encoder, Enter = push, Esc = BACK (hold 3 s for HOLD). QR payloads are fed from files or the command line as if the camera had decoded them. This is how the color profiles are developed before a module is in hand | T5a | `sim/leek-sim --profile tft240` runs every Phase 4 flow by hand; the same build saves screenshots | H |
 | T6 | QEMU harness (`LBS_QEMU_HARNESS`): `K`/`Q` input and `F`/`S` frame output on UART0, for whichever profile the image was built for. `scripts/qemu.sh`, `scripts/qemu-flow.py`, and `scripts/qemu-view.py`, which shows the streamed frames live in a window | T2, T5 | A pexpect script boots the image, scrolls a menu, and reads back the expected frame | Q |
 | T7 | Release check: harness symbols absent from `s3cam` | T6 | `scripts/check-release.sh` fails if `qemu_harness_` is found in the release ELF | Q |
 | T8 | Carry over `entropy.c`, `rand_esp32.c` (health tests, fail closed). In the QEMU env, a marked test RNG | T2 | Host: the health tests reject stuck and biased sources. Board: `entropy_dump_for_analysis` runs | H, B |
@@ -173,3 +173,31 @@ T0 → T2 → T5 → T6 → T12 → T14 → T15 → T19 → T20 → T21 → T24 
 
 The hardware tasks T4, T9, T22, T26a and T27 run beside it whenever the board is on the
 bench. Each one is a leaf that unblocks only its own check.
+
+---
+
+## Progress
+
+Hardware results get a date when they come in. Until then, "done" means proven
+on the host and in QEMU.
+
+### 2026-10-16: Phase 0, everything that does not need the board
+
+| Task | State | Evidence |
+|---|---|---|
+| T0 | Done | `s3cam`, `s3cam-dev`, `s3cam-qemu` build; `qemu.sh --smoke` passes |
+| T1 | Done | `check-radios.sh` passes on all three images, and `test-checks.sh` shows it fails on an image with a radio |
+| T2 | Done (QEMU), board pending | SH1107/SSD1306 driver builds into the board images; `check-release.sh` confirms it is linked |
+| T2a | Done | 4-bit indexed framebuffer, colour roles, five profiles; `test_gfx` on each |
+| T2b | Open | The colour profiles use the 5x7 font scaled 2x; long labels are cut on `tft240` |
+| T3 | Done | New host harness (`sim/`), ASan + UBSan, every profile |
+| T4 | Host done, board pending | `test_encoder` |
+| T5 | Done | `test_input`: debounce, BACK on release, HOLD at 3 s, auto-repeat. It caught a repeat firing after release |
+| T5a | Done | `make -C sim shots`: 31 screenshots per profile |
+| T5b | Built | `make -C sim sim PROFILE=…` runs; not yet driven by hand |
+| T6 | Done except QR injection (T23) and a live viewer | `qemu-flow.py`: two flows with frame checks on the real image |
+| T7 | Done | `check-release.sh`, proven to fail on a harness image |
+| T8 | Open | Entropy carry-over |
+| T9 | Open, needs the board | Camera |
+| T10 | Done | Home, Load A Seed, Tools, Settings, I/O test, Version; the rest show the task that builds them |
+| T11 | Done | `./scripts/check.sh`: ALL CHECKS PASSED |
