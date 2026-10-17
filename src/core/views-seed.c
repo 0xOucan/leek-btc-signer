@@ -67,7 +67,7 @@ static void seed_options_select(int i)
         ui_push(&SCREEN_SCAN_PSBT);
         break;
     case OPT_EXPORT_XPUB:   SeedExportXpubSigTypeView(seed); break;
-    case OPT_EXPLORER:      not_yet("ToolsAddressExplorerAddressTypeView"); break;
+    case OPT_EXPLORER:      tools_explorer_from_seed(seed); break;
     case OPT_BACKUP:        SeedBackupView(seed); break;
     case OPT_SIGN_MESSAGE:  not_yet("SeedSignMessageStartView"); break;
     case OPT_BIP85:         not_yet("SeedBIP85SelectNumWordsView"); break;
@@ -101,8 +101,9 @@ static void seed_options(int seed, bool fresh)
     if (fresh) {
         view_clear_history();   /* clear_history=True */
     }
-    /* A seed loaded for a PSBT goes back to it (resume_main_flow). */
-    if (psbt_flow_resume(seed)) {
+    /* A seed loaded mid-flow goes back to it (resume_main_flow), the
+       address explorer first, as SeedSigner checks it first. */
+    if (tools_explorer_resume(seed) || psbt_flow_resume(seed)) {
         return;
     }
     view_push(&v);

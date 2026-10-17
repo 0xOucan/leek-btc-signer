@@ -130,6 +130,23 @@ FLOWS = {
         (["OK"] * 50, "SeedWordsWarningView", "dice 12 65fb43fe"),
         (["BACK"], "MainMenuView"),
     ],
+    # SeedSigner's test__address_explorer__flow on the firmware: abandon x11
+    # about's first BIP-84 receive address, BIP-84's own test vector.
+    "address-explorer": [
+        (["OK"], "ScanView"),
+        ([bytes(16)], "SeedFinalizeView", "fingerprint 73c5da0a"),
+        (["OK"], "SeedOptionsView"),
+        (["BACK"], "MainMenuView"),
+        (["DOWN", "DOWN", "OK"], "ToolsMenuView"),
+        (["DOWN", "DOWN", "DOWN", "OK"], "ToolsAddressExplorerSelectSourceView"),
+        (["OK"], "SeedExportXpubScriptTypeView"),
+        (["OK"], "ToolsAddressExplorerAddressTypeView", ("prefix", "explorer 73c5da0a m/84'/0'/0'")),
+        (["OK"], "ToolsAddressExplorerAddressListView"),
+        (["OK"], "ToolsAddressExplorerAddressView",
+         "address 0 bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"),
+        (["OK"], "ToolsAddressExplorerAddressListView"),
+        (["HOLD"], "MainMenuView"),
+    ],
     "scan-invalid": [
         (["OK"], "ScanView"),
         (["hello world"], "ScanInvalidQRTypeView", "invalid"),

@@ -22,7 +22,6 @@
 
 PENDING(CAMERA_SEED_PENDING, "New seed",
         "Camera entropy arrives with T52.");
-PENDING(EXPLORER_PENDING, "Address explorer", "Arrives with T51.");
 PENDING(VERIFY_PENDING, "Verify address", "Arrives with T40.");
 PENDING(ADVANCED_PENDING, "Advanced", "Settings arrive with T41.");
 PENDING(HARDWARE_PENDING, "Hardware", "Settings arrive with T41.");
@@ -108,7 +107,7 @@ static const menu_item_t tools_items[] = {
     { "New seed (camera)", &CAMERA_SEED_PENDING, NULL },
     { "New seed (dice)", NULL, ToolsDiceEntropyMnemonicLengthView },
     { "Calc 12th/24th word", NULL, ToolsCalcFinalWordNumWordsView },
-    { "Address explorer", &EXPLORER_PENDING, NULL },
+    { "Address explorer", NULL, ToolsAddressExplorerSelectSourceView },
     { "Verify address", &VERIFY_PENDING, NULL },
 };
 static menu_t tools_menu = { "Tools", tools_items, 5, 0, 0 };
@@ -149,6 +148,7 @@ static void home_resume(const screen_t *s)
 {
     (void)s;
     psbt_flow_clear();
+    tools_flow_clear();
 }
 
 const screen_t SCREEN_HOME = {

@@ -55,6 +55,8 @@ void ui_input(input_ev_t ev);
 /* Draw the top screen into the framebuffer. */
 void ui_render(void);
 const screen_t *ui_top(void);
+/* The screen at stack position `i` (0 is the root), or NULL. */
+const screen_t *ui_screen_at(int i);
 int ui_depth(void);
 /* Run the top screen's tick; true if it wants a redraw. */
 bool ui_tick(void);

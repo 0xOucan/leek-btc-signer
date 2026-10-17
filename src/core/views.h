@@ -18,7 +18,7 @@
 
 #include "screens-common.h"
 
-#define VIEW_BUTTONS_MAX 10
+#define VIEW_BUTTONS_MAX 12
 #define VIEW_LABEL_MAX 32
 
 typedef struct {
@@ -38,6 +38,8 @@ typedef struct {
     void (*back)(void);
     /* Free for the handler: which seed, which script type. */
     int arg;
+    /* The button selected when it opens (a list returned to keeps its place). */
+    int selected;
 } view_spec_t;
 
 /* Push a view; replace the top one; or clear to home first and push. */

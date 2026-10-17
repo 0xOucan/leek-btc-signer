@@ -99,6 +99,12 @@ DONE = {
     "ToolsCalcFinalWordCoinFlipsView": "test_tools_flows.c",
     "ToolsCalcFinalWordShowFinalWordView": "18 cases: SeedSigner's bits, checksum and final word: test_tools_flows.c",
     "ToolsCalcFinalWordDoneView": "load and discard: test_tools_flows.c",
+    # The address explorer: SeedSigner's test_flows_tools.py cases, plus every
+    # address list its own explorer made (960 addresses)
+    "ToolsAddressExplorerSelectSourceView": "test__address_explorer__flow, loadseed sideflow, wrong QR type: test_tools_flows.c; qemu-flow address-explorer",
+    "ToolsAddressExplorerAddressTypeView": "all four back_button scenarios: test_tools_flows.c; qemu-flow address-explorer",
+    "ToolsAddressExplorerAddressListView": "48 lists, 960 addresses as SeedSigner's, pages and BACK: test_tools_flows.c; qemu-flow address-explorer",
+    "ToolsAddressExplorerAddressView": "returns to the list at the address: test_tools_flows.c; qemu-flow address-explorer",
 }
 
 

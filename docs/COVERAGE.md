@@ -7,7 +7,7 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**54 of 109 views: 49.5%.**
+**58 of 109 views: 53.2%.**
 
 ## System: 4 of 12
 
@@ -114,7 +114,7 @@ writes this page and the README chart.
 | `PSBTSignedQRDisplayView` | ✅ | test_psbt_flows.c; qemu-flow psbt-sign |
 | `PSBTSigningErrorView` | ✅ | test_scan_multisig_psbt_seed_already_signed_flow: test_psbt_flows.c |
 
-## Tools: 8 of 15
+## Tools: 12 of 15
 
 | View | Done | Evidence |
 |---|---|---|
@@ -129,10 +129,10 @@ writes this page and the README chart.
 | `ToolsCalcFinalWordCoinFlipsView` | ✅ | test_tools_flows.c |
 | `ToolsCalcFinalWordShowFinalWordView` | ✅ | 18 cases: SeedSigner's bits, checksum and final word: test_tools_flows.c |
 | `ToolsCalcFinalWordDoneView` | ✅ | load and discard: test_tools_flows.c |
-| `ToolsAddressExplorerSelectSourceView` |  |  |
-| `ToolsAddressExplorerAddressTypeView` |  |  |
-| `ToolsAddressExplorerAddressListView` |  |  |
-| `ToolsAddressExplorerAddressView` |  |  |
+| `ToolsAddressExplorerSelectSourceView` | ✅ | test__address_explorer__flow, loadseed sideflow, wrong QR type: test_tools_flows.c; qemu-flow address-explorer |
+| `ToolsAddressExplorerAddressTypeView` | ✅ | all four back_button scenarios: test_tools_flows.c; qemu-flow address-explorer |
+| `ToolsAddressExplorerAddressListView` | ✅ | 48 lists, 960 addresses as SeedSigner's, pages and BACK: test_tools_flows.c; qemu-flow address-explorer |
+| `ToolsAddressExplorerAddressView` | ✅ | returns to the list at the address: test_tools_flows.c; qemu-flow address-explorer |
 
 ## Settings: 2 of 8
 

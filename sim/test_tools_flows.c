@@ -16,6 +16,19 @@
 
 #define N(a) (sizeof(a) / sizeof((a)[0]))
 
+/* Choose the index-th button, as SeedSigner's tests' screen_return_value. */
+static void choose_index(int index)
+{
+    for (int i = 0; i < 40; i++) key(IN_UP);
+    for (int i = 0; i < index; i++) key(IN_DOWN);
+    key(IN_OK);
+}
+
+static void scan_text(const char *text)
+{
+    scan((const uint8_t *)text, strlen(text));
+}
+
 /* Move the keypad's selection to key `want` (its length: DEL) with DOWN. */
 static void keypad_to(int want)
 {
@@ -196,6 +209,191 @@ static void test_final_word_back_and_discard(void)
     CHECK(storage_pending() == NULL && storage_count() == 0, "Discard kept the seed");
 }
 
+/* ---- tests/test_flows_tools.py: the address explorer --------------------- */
+
+static void load_seed(const char *mnemonic, const char *passphrase)
+{
+    seed_t s;
+    CHECK(seed_from_mnemonic(&s, mnemonic, passphrase) == SEED_OK, "seed");
+    storage_set_pending(&s);
+    seed_clear(&s);
+    storage_finalize();
+}
+
+static const char *ABANDON = "abandon abandon abandon abandon abandon abandon abandon abandon "
+                             "abandon abandon abandon about";
+
+static void test__address_explorer__flow(void)
+{
+    printf("== test__address_explorer__flow\n");
+    fresh();
+    notes_reset();
+    load_seed(ABANDON, "");
+    choose("Tools");
+    STEP("ToolsMenuView");
+    choose("Address explorer");
+    STEP("ToolsAddressExplorerSelectSourceView");
+    choose_index(0);
+    STEP("SeedExportXpubScriptTypeView");
+    choose("Native Segwit");
+    STEP("ToolsAddressExplorerAddressTypeView");
+    choose("Receive addresses");
+    STEP("ToolsAddressExplorerAddressListView");
+    CHECK(noted("addr 0 bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"), "BIP-84's first address");
+    choose("Next");
+    STEP("ToolsAddressExplorerAddressListView");
+    choose_index(4);
+    STEP("ToolsAddressExplorerAddressView");
+    CHECK(strncmp(last_note, "address 14 bc1q", 15) == 0, "note %s", last_note);
+    key(IN_OK);
+    STEP("ToolsAddressExplorerAddressListView");
+    const char *sel = ui_selected_label();
+    CHECK(sel && strncmp(sel, "14:", 3) == 0, "the list did not return to address 14: %s", sel ? sel : "-");
+    key(IN_BACK);
+    STEP("ToolsAddressExplorerAddressListView");    /* the first page */
+    key(IN_BACK);
+    STEP("ToolsAddressExplorerAddressTypeView");
+}
+
+static void test__address_explorer__loadseed__sideflow(void)
+{
+    printf("== test__address_explorer__loadseed__sideflow\n");
+    fresh();
+    choose("Tools");
+    choose("Address explorer");
+    choose("Scan a seed");
+    STEP("ScanSeedQRView");
+    scan_text("000000000000000000000000000000000000000000000003");
+    STEP("SeedFinalizeView");
+    choose("Done");
+    STEP("SeedExportXpubScriptTypeView");       /* SeedOptionsView redirected */
+
+    /* The flow is still set: a seed finalised with a passphrase goes on to
+       the explorer too. */
+    storage_wipe_all();
+    seed_t s;
+    seed_from_mnemonic(&s, ABANDON, "");
+    storage_set_pending(&s);
+    seed_clear(&s);
+    SeedFinalizeView();
+    STEP("SeedFinalizeView");
+    choose("BIP-39 Passphrase");
+    STEP("SeedAddPassphraseView");
+    type_passphrase("mypassphrase", true);
+    STEP("SeedReviewPassphraseView");
+    choose("Done");
+    STEP("SeedExportXpubScriptTypeView");
+}
+
+static void test__address_explorer__scan_wrong_qrtype__flow(void)
+{
+    printf("== test__address_explorer__scan_wrong_qrtype__flow\n");
+    fresh();
+    choose("Tools");
+    choose("Address explorer");
+    choose("Scan a seed");
+    scan_text("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq");
+    STEP("ErrorView");
+}
+
+static void test__address_explorer__back_button__flow(void)
+{
+    printf("== test__address_explorer__back_button__flow\n");
+    /* 1: seed loaded, two script types: BACK can change the script type. */
+    fresh();
+    load_seed(ABANDON, "");
+    for (int t = 0; t < SCRIPT_COUNT; t++) SETTINGS.script_types[t] = t == SCRIPT_NAT || t == SCRIPT_TR;
+    choose("Seeds");
+    STEP("SeedsMenuView");
+    choose_index(0);
+    STEP("SeedOptionsView");
+    choose("Address explorer");
+    STEP("SeedExportXpubScriptTypeView");
+    choose_index(0);
+    STEP("ToolsAddressExplorerAddressTypeView");
+    key(IN_BACK);
+    STEP("SeedExportXpubScriptTypeView");
+
+    /* 2: one script type, from SeedOptionsView: BACK to it, flow ended. */
+    for (int t = 0; t < SCRIPT_COUNT; t++) SETTINGS.script_types[t] = t == SCRIPT_NAT;
+    key(IN_HOLD);
+    choose("Seeds");
+    choose_index(0);
+    choose("Address explorer");
+    STEP("ToolsAddressExplorerAddressTypeView");    /* the script type redirected */
+    key(IN_BACK);
+    STEP("SeedOptionsView");
+    choose("Backup seed");
+    STEP("SeedBackupView");                         /* no redirect loop */
+
+    /* 3: one script type, from the Tools menu: BACK to the source. */
+    key(IN_HOLD);
+    choose("Tools");
+    choose("Address explorer");
+    STEP("ToolsAddressExplorerSelectSourceView");
+    choose_index(0);
+    STEP("ToolsAddressExplorerAddressTypeView");
+    key(IN_BACK);
+    STEP("ToolsAddressExplorerSelectSourceView");
+
+    /* 4: no seed: loading one mid-flow clears the history, so BACK goes home. */
+    key(IN_HOLD);
+    storage_discard(0);
+    choose("Tools");
+    choose("Address explorer");
+    choose("Scan a seed");
+    scan_text("000000000000000000000000000000000000000000000003");
+    STEP("SeedFinalizeView");
+    choose("Done");
+    STEP("ToolsAddressExplorerAddressTypeView");
+    key(IN_BACK);
+    STEP("MainMenuView");
+}
+
+/* Every address list SeedSigner's explorer produced, page by page. */
+static void test_every_address_list(void)
+{
+    printf("== every address list SeedSigner's explorer made, through the screens\n");
+    static const struct { const char *ss; script_opt_t t; } scripts[] = {
+        { "nat", SCRIPT_NAT }, { "nes", SCRIPT_NES }, { "leg", SCRIPT_LEG }, { "tr", SCRIPT_TR },
+    };
+    unsigned lists = 0, addrs = 0;
+    for (size_t i = 0; i < N(VEC_TOOLS_EXPLORER); i++) {
+        const vec_tools_explorer_t *v = &VEC_TOOLS_EXPLORER[i];
+        script_opt_t t = SCRIPT_COUNT;
+        for (size_t k = 0; k < N(scripts); k++) {
+            if (strcmp(scripts[k].ss, v->script_type) == 0) t = scripts[k].t;
+        }
+        fresh();
+        notes_reset();
+        SETTINGS.network = v->net;
+        for (int k = 0; k < SCRIPT_COUNT; k++) SETTINGS.script_types[k] = k != SCRIPT_CUSTOM;
+        load_seed(v->mnemonic, "");
+        choose("Tools");
+        choose("Address explorer");
+        choose_index(0);
+        STEP("SeedExportXpubScriptTypeView");
+        choose(script_type_name(t));
+        STEP("ToolsAddressExplorerAddressTypeView");
+        char want[160];
+        snprintf(want, sizeof want, "explorer %s %s", v->fingerprint, v->derivation_path);
+        CHECK(noted(want), "list %zu: no \"%s\" (last: %s)", i, want, last_note);
+        choose(v->is_change ? "Change addresses" : "Receive addresses");
+        STEP(v->is_change ? "ToolsAddressExplorerAddressListView" : "ToolsAddressExplorerAddressListView");
+        choose("Next");
+        for (int k = 0; k < 20; k++) {
+            snprintf(want, sizeof want, "addr %d %s", k, v->addresses[k]);
+            CHECK(noted(want), "list %zu: no \"%s\"", i, want);
+            addrs++;
+        }
+        choose_index(4);
+        snprintf(want, sizeof want, "address 14 %s", v->addresses[14]);
+        CHECK(noted(want), "list %zu: the QR is not of address 14", i);
+        lists++;
+    }
+    printf("   %u lists, %u addresses as SeedSigner's\n", lists, addrs);
+}
+
 int main(void)
 {
     btc_init(rand_fill);
@@ -205,6 +403,11 @@ int main(void)
     test_dice_delete_and_back();
     test_final_word();
     test_final_word_back_and_discard();
+    test__address_explorer__flow();
+    test__address_explorer__loadseed__sideflow();
+    test__address_explorer__scan_wrong_qrtype__flow();
+    test__address_explorer__back_button__flow();
+    test_every_address_list();
     fresh();
     storage_wipe_all();
     return CHECK_DONE("test_tools_flows");

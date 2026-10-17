@@ -153,6 +153,11 @@ void ui_render(void)
 
 const screen_t *ui_top(void) { return depth ? stack[depth - 1] : NULL; }
 
+const screen_t *ui_screen_at(int i)
+{
+    return i >= 0 && i < depth ? stack[i] : NULL;
+}
+
 bool ui_tick(void)
 {
     const screen_t *s = ui_top();

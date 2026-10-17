@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  ██████████░░░░░░░░░░  54 of 109 views (50%)
+SeedSigner  ███████████░░░░░░░░░  58 of 109 views (53%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
@@ -76,6 +76,7 @@ are screens on top of it.
 | PSBT review and the anti-forgery checks | ✅ | ✅ the whole flow on screen: seed choice, overview, warnings, math, each recipient and change output, OP_RETURN, every refusal; plus three stricter refusals (below) |
 | PSBT signing: segwit, nested, legacy, taproot | ✅ | ✅ byte-identical signed PSBTs (taproot verified) |
 | Animated UR output of the signed PSBT | ✅ | ✅ shown after approval; parts identical to SeedSigner's |
+| Address explorer | ✅ | ✅ receive and change addresses page by page, each as a QR; identical to SeedSigner's for every script type and network; multisig descriptors in Phase 6 |
 | Address verification | ✅ | 🟡 logic done; address display identical to SeedSigner's; flow next |
 | Multisig: descriptors, cosigner checks | ✅ | 🟡 multisig PSBTs reviewed and signed; change verification against a descriptor in Phase 6 |
 | BIP-85 child seeds | ✅ | 🟡 logic done; screens in Phase 6 |

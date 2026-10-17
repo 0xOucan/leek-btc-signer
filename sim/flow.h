@@ -20,6 +20,7 @@
 #include "ui.h"
 #include "views-psbt.h"
 #include "views-seed.h"
+#include "views-tools.h"
 #include "views.h"
 
 /* The last note, and every note since notes_reset(), one per line. */
@@ -164,6 +165,7 @@ static inline void type_passphrase(const char *text, bool finish)
 static inline void fresh(void)
 {
     psbt_flow_clear();
+    tools_flow_clear();
     storage_wipe_all();
     settings_reset();
     ui_init(&SCREEN_HOME);

@@ -11,19 +11,38 @@
  * keypad closes; notes carry only fingerprints.
  *
  * The arithmetic is btc.c's port of SeedSigner's mnemonic_generation.py.
+ *
+ * The address explorer: choose a seed (or load one, which resumes the
+ * explorer as SeedSigner's resume_main_flow does), a script type, receive
+ * or change, then pages of ten addresses, each shown as a QR on request.
+ * Wallet descriptors (multisig) wait for T47.
  */
 #include "views-tools.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "btc.h"
+#include "qr-encode.h"
+#include "screens.h"
+#include "settings.h"
 #include "secmem.h"
 #include "seed-storage.h"
 #include "theme.h"
 #include "views-seed.h"
 #include "views.h"
 #include "wally_core.h"
+
+static void not_yet(const char *view)
+{
+    char text[96];
+    snprintf(text, sizeof text, "%s is not ported yet.", view);
+    const view_spec_t v = { .name = "NotYetImplementedView", .title = "Work In Progress",
+                            .text = text, .status = true, .kind = NOTICE_INFO,
+                            .buttons = { "OK" }, .n_buttons = 1 };
+    view_push(&v);
+}
 
 #define DICE_ROLLS_12 50    /* DICE__NUM_ROLLS__12WORD */
 #define DICE_ROLLS_24 99    /* DICE__NUM_ROLLS__24WORD */
@@ -360,5 +379,276 @@ void ToolsCalcFinalWordNumWordsView(void)
     const view_spec_t v = { .name = "ToolsCalcFinalWordNumWordsView", .title = "Mnemonic Length",
                             .buttons = { "12 words", "24 words" }, .n_buttons = 2,
                             .select = num_words_select };
+    view_push(&v);
+}
+
+/* ---- Address explorer ---------------------------------------------------- */
+
+/* The Controller's address_explorer_data and resume_main_flow ==
+   FLOW__ADDRESS_EXPLORER. The seed is an index into seed-storage; the
+   path and xpub are public. */
+static struct {
+    bool resume;
+    int seed;
+    script_opt_t script;
+    char path[48];
+    char xpub[120];
+    bool is_change;
+    int start;              /* the list page on screen */
+    qr_encoder_t *enc;      /* the address QR, only while shown */
+    uint8_t *qr_buf;
+    int return_start, return_sel;
+} ex;
+
+#define ADDRS_PER_SCREEN 10
+
+void tools_flow_clear(void)
+{
+    ex.resume = false;
+}
+
+static btc_script_t ex_btc_script(script_opt_t s)
+{
+    switch (s) {
+    case SCRIPT_NAT: return BTC_SCRIPT_P2WPKH;
+    case SCRIPT_NES: return BTC_SCRIPT_P2SH_P2WPKH;
+    case SCRIPT_LEG: return BTC_SCRIPT_P2PKH;
+    case SCRIPT_TR:  return BTC_SCRIPT_P2TR;
+    default:         return BTC_SCRIPT_INVALID;
+    }
+}
+
+/* The View under the top one, by name. */
+static bool under_is(const char *name)
+{
+    return ui_depth() >= 2 && strcmp(ui_screen_at(ui_depth() - 2)->name, name) == 0;
+}
+
+static void ToolsAddressExplorerAddressListView(bool is_change, int start, int selected, bool replace);
+
+static void address_qr_reopen(void)
+{
+    if (ui_depth() > 1) {   /* not after HOLD sent the user home */
+        ToolsAddressExplorerAddressListView(ex.is_change, ex.return_start, ex.return_sel, false);
+    }
+}
+
+static void address_qr_leave(void)
+{
+    if (ex.enc) {
+        qr_encoder_wipe(ex.enc);
+    }
+    free(ex.enc);
+    free(ex.qr_buf);
+    ex.enc = NULL;
+    ex.qr_buf = NULL;
+    /* Exiting the QR always returns to the list, at the address shown. */
+    ui_after(address_qr_reopen);
+}
+
+#define ADDR_QR_BUF 128
+
+static void ToolsAddressExplorerAddressView(int index, const char *address)
+{
+    ex.enc = malloc(sizeof *ex.enc);
+    ex.qr_buf = malloc(ADDR_QR_BUF);
+    if (!ex.enc || !ex.qr_buf || !qr_encode_text(ex.enc, address, ex.qr_buf, ADDR_QR_BUF)) {
+        free(ex.enc);
+        free(ex.qr_buf);
+        ex.enc = NULL;
+        ex.qr_buf = NULL;
+        return;
+    }
+    ex.return_start = ex.start;
+    ex.return_sel = index - ex.start;
+    ui_note("address %d %s", index, address);
+    /* skip_current_view: the QR takes the list's place. */
+    ui_pop();
+    ui_show_qr("ToolsAddressExplorerAddressView", ex.enc, address_qr_leave);
+}
+
+static char ex_addrs[ADDRS_PER_SCREEN][100];
+
+static void address_list_select(int i)
+{
+    if (i == ADDRS_PER_SCREEN) {
+        ToolsAddressExplorerAddressListView(ex.is_change, ex.start + ADDRS_PER_SCREEN, 0, false);
+        return;
+    }
+    ToolsAddressExplorerAddressView(ex.start + i, ex_addrs[i]);
+}
+
+static void address_list_back(void)
+{
+    ui_pop();
+    /* The page under, if any, is what is on screen again. */
+    if (ex.start >= ADDRS_PER_SCREEN && strcmp(ui_top()->name, "ToolsAddressExplorerAddressListView") == 0) {
+        ex.start -= ADDRS_PER_SCREEN;
+        for (int k = 0; k < ADDRS_PER_SCREEN; k++) {
+            btc_address(ex.xpub, ex_btc_script(ex.script), (uint32_t)(ex.start + k), ex.is_change,
+                        SETTINGS.network, ex_addrs[k], sizeof ex_addrs[k]);
+        }
+    }
+}
+
+static void ToolsAddressExplorerAddressListView(bool is_change, int start, int selected, bool replace)
+{
+    (void)replace;
+    ui_working("Calculating addrs...");
+    ex.is_change = is_change;
+    ex.start = start;
+    static char labels[ADDRS_PER_SCREEN][VIEW_LABEL_MAX];
+    view_spec_t v = { .name = "ToolsAddressExplorerAddressListView",
+                      .title = is_change ? "Change Addrs" : "Receive Addrs",
+                      .select = address_list_select, .back = address_list_back, .selected = selected };
+    for (int k = 0; k < ADDRS_PER_SCREEN; k++) {
+        const int index = start + k;
+        if (!btc_address(ex.xpub, ex_btc_script(ex.script), (uint32_t)index, is_change, SETTINGS.network,
+                         ex_addrs[k], sizeof ex_addrs[k])) {
+            snprintf(ex_addrs[k], sizeof ex_addrs[k], "?");
+        }
+        const size_t len = strlen(ex_addrs[k]);
+        snprintf(labels[k], sizeof labels[k], "%d:%.8s..%s", index, ex_addrs[k],
+                 ex_addrs[k] + (len > 6 ? len - 6 : 0));
+        v.buttons[v.n_buttons++] = labels[k];
+        ui_note("addr %d %s", index, ex_addrs[k]);
+    }
+    v.buttons[v.n_buttons++] = "Next";
+    view_push(&v);
+}
+
+static void address_type_select(int i)
+{
+    ToolsAddressExplorerAddressListView(i == 1, 0, 0, false);
+}
+
+static void address_type_back(void)
+{
+    /* Entered from SeedOptionsView: the flow ends here, or SeedOptionsView
+       would send the user straight back in. */
+    if (under_is("SeedOptionsView")) {
+        ex.resume = false;
+    }
+    ui_pop();
+}
+
+static void ToolsAddressExplorerAddressTypeView(int seed, script_opt_t script, bool replace)
+{
+    const seed_t *s = storage_seed(seed);
+    if (s == NULL || ex_btc_script(script) == BTC_SCRIPT_INVALID ||
+        !btc_standard_path(SETTINGS.network, BTC_SIG_SINGLE, ex_btc_script(script), ex.path, sizeof ex.path) ||
+        !btc_xpub(s->bytes, sizeof s->bytes, ex.path, SETTINGS.network, 0, ex.xpub, sizeof ex.xpub)) {
+        return;
+    }
+    ex.seed = seed;
+    ex.script = script;
+    char fp[9], text[96];
+    seed_fingerprint_hex(s, fp);
+    snprintf(text, sizeof text, "%s\n%s\n%s", fp, script_type_name(script), ex.path);
+    const view_spec_t v = { .name = "ToolsAddressExplorerAddressTypeView", .title = "Address Explorer",
+                            .text = text, .buttons = { "Receive addresses", "Change addresses" },
+                            .n_buttons = 2, .select = address_type_select, .back = address_type_back };
+    if (replace) {
+        view_replace(&v);
+    } else {
+        view_push(&v);
+    }
+    ui_note("explorer %s %s", fp, ex.path);
+}
+
+/* SeedExportXpubScriptTypeView as the explorer uses it: single sig, its own
+   title, and on to the address type rather than the QR format. */
+static script_opt_t ex_script_map[SCRIPT_COUNT];
+
+static void ex_script_select(int i)
+{
+    if (ex_script_map[i] == SCRIPT_CUSTOM) {
+        not_yet("SeedExportXpubCustomDerivationView");
+        return;
+    }
+    ToolsAddressExplorerAddressTypeView(view_arg(), ex_script_map[i], false);
+}
+
+static void ex_script_back(void)
+{
+    if (under_is("SeedOptionsView")) {
+        ex.resume = false;
+    }
+    ui_pop();
+}
+
+void tools_explorer_script_type(int seed, bool replace)
+{
+    view_spec_t v = { .name = "SeedExportXpubScriptTypeView", .title = "Address Explorer",
+                      .select = ex_script_select, .back = ex_script_back, .arg = seed };
+    for (int t = 0; t < SCRIPT_COUNT; t++) {
+        if (SETTINGS.script_types[t]) {
+            ex_script_map[v.n_buttons] = (script_opt_t)t;
+            v.buttons[v.n_buttons++] = script_type_name((script_opt_t)t);
+        }
+    }
+    if (v.n_buttons == 1) {
+        /* Nothing to choose: straight on, in this View's place. */
+        ToolsAddressExplorerAddressTypeView(seed, ex_script_map[0], replace);
+        return;
+    }
+    if (replace) {
+        view_replace(&v);
+    } else {
+        view_push(&v);
+    }
+}
+
+void tools_explorer_from_seed(int seed)
+{
+    ex.resume = true;
+    tools_explorer_script_type(seed, false);
+}
+
+bool tools_explorer_resume(int seed)
+{
+    if (!ex.resume) {
+        return false;
+    }
+    /* The flow stays set: it is still needed after the script type. */
+    tools_explorer_script_type(seed, false);
+    return true;
+}
+
+enum { SRC_SCAN, SRC_DESCRIPTOR, SRC_12, SRC_24, SRC_ELECTRUM };
+
+static void select_source_select(int i)
+{
+    const int n = storage_count();
+    ex.resume = true;
+    if (i < n) {
+        tools_explorer_script_type(i, false);
+        return;
+    }
+    switch (i - n) {
+    case SRC_SCAN:       ui_push(&SCREEN_SCAN_SEED); break;
+    case SRC_DESCRIPTOR: not_yet("ScanWalletDescriptorView"); break;
+    case SRC_12:         SeedMnemonicEntryView(12); break;
+    case SRC_24:         SeedMnemonicEntryView(24); break;
+    default:             not_yet("SeedElectrumMnemonicStartView"); break;
+    }
+}
+
+void ToolsAddressExplorerSelectSourceView(void)
+{
+    static char labels[SEED_STORAGE_MAX][9];
+    view_spec_t v = { .name = "ToolsAddressExplorerSelectSourceView", .title = "Address Explorer",
+                      .select = select_source_select };
+    for (int i = 0; i < storage_count(); i++) {
+        seed_fingerprint_hex(storage_seed(i), labels[i]);
+        v.buttons[v.n_buttons++] = labels[i];
+    }
+    v.buttons[v.n_buttons++] = "Scan a seed";
+    v.buttons[v.n_buttons++] = "Scan wallet descriptor";
+    v.buttons[v.n_buttons++] = "Enter 12-word seed";
+    v.buttons[v.n_buttons++] = "Enter 24-word seed";
+    if (SETTINGS.electrum_seeds) {
+        v.buttons[v.n_buttons++] = "Enter Electrum seed";
+    }
     view_push(&v);
 }

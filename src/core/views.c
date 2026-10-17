@@ -250,6 +250,9 @@ static const screen_t *fill(const view_spec_t *spec)
     for (int i = 0; i < v->spec.n_buttons; i++) {
         snprintf(v->labels[i], VIEW_LABEL_MAX, "%s", spec->buttons[i]);
     }
+    if (spec->selected > 0 && spec->selected < v->spec.n_buttons) {
+        v->sel = spec->selected;
+    }
     const int avail = GFX_W - 2 * THEME.pad - (spec->status ? 4 : 0);
     v->n_lines = wrap(v->text, avail, v->lines, v->len, VIEW_LINES_MAX);
     if (!spec->status && v->n_lines > 0) {

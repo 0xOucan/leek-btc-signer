@@ -248,6 +248,7 @@ on the host and in QEMU.
 | T33 | Done | `secmem.c`: secrets come from internal RAM only (ESP: `MALLOC_CAP_INTERNAL`, never PSRAM) and are wiped on free. A scanned seed never enters the decoder's arena, which may be PSRAM; `test_qr_decode` proves the arena untouched for every seed format, `test_scan` proves the Scan screen's decoder and seed came from `sec_alloc` and went back |
 | T39 | Done, single-sig and multisig without a descriptor | `views-psbt.c`: 18 of SeedSigner's 19 PSBT views. `test_psbt_flows` ports `test_flows_psbt.py` and walks all 207 parser-test PSBTs through the screens on five profiles; 155 sign to SeedSigner's PSBT. `qemu-flow.py psbt-sign` signs on the Xtensa image. Verifying multisig change against a descriptor waits for T47 |
 | T35 | Done except camera entropy | `views-tools.c`: SeedSigner's dice views (50 or 99 rolls on a 1-6 keypad with DEL) and the five final-word calculator views (coin flips, a chosen word, or zeros, then the checksum word). SeedSigner has no flow tests for these, so `gen_tools_vectors.py` runs its own Views through its FlowTest harness and records what they compute; `test_tools_flows` matches all 12 dice and 18 final-word cases on five profiles. `qemu-flow.py dice-seed` makes a seed from 50 rolls on the Xtensa image. Camera entropy waits for the board (T9) |
+| T51 | Done, single sig | `views-tools.c`: SeedSigner's four address explorer views, entered from the Tools menu or a seed's options, with a seed loaded mid-flow resuming it (`resume_main_flow`). `test_tools_flows` ports `test_flows_tools.py`'s explorer cases, all four BACK scenarios included, and checks 48 address lists SeedSigner's own explorer made (960 addresses: 2 seeds, 3 networks, 4 script types, receive and change, two pages). `qemu-flow.py address-explorer` shows BIP-84's first address on the Xtensa image. Wallet descriptors (multisig) and custom derivations wait for T47 |
 | Found by QEMU | Fixed | The Scan screen sized its PSBT buffer to its whole arena, which a board short of RAM could not give; it is now bounded by the scan (`qr_decoder_psbt_max`), checked against every recorded PSBT |
 
 ### 2026-10-17: Phase 4 begins, measured in SeedSigner views
@@ -333,4 +334,16 @@ quirc's 9 KB decode result per code. With both suites in one image, the
 Xtensa run showed quirc finding every code and the decode buffer's malloc
 returning NULL. Both buffers are now allocated once, when each suite starts;
 on the board, quirc's buffers will live in PSRAM.
+
+### 2026-10-17: The address explorer
+
+Four Tools views: choose the source (a loaded seed, or one scanned or typed
+mid-flow, which resumes the explorer as SeedSigner's `resume_main_flow`
+does), the script type (skipped when only one is enabled), receive or
+change, then pages of ten addresses, each shown as a QR that returns to the
+list at the same address. `gen_tools_vectors.py` now also runs SeedSigner's
+explorer through its FlowTest harness and records every list it makes;
+`test_tools_flows` ports the explorer cases of `test_flows_tools.py` and
+matches all 960 addresses on five profiles. Stack views now take up to 12
+buttons and open on a given selection. 58 of 109 views.
 
