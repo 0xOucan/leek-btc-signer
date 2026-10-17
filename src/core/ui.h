@@ -13,6 +13,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "gfx.h"
 #include "input.h"
@@ -25,8 +26,14 @@ struct screen {
     void (*render)(const screen_t *s);
     bool (*input)(const screen_t *s, input_ev_t ev);   /* true = handled */
     void (*leave)(const screen_t *s);
+    /* Called while the screen is on top, between inputs, about every
+       UI_TICK_MS: for work that does not come from a key, such as decoding
+       scanned frames. True = redraw. */
+    bool (*tick)(const screen_t *s);
     void *ctx;
 };
+
+#define UI_TICK_MS 20
 
 #define UI_STACK_MAX 16
 
@@ -39,6 +46,22 @@ void ui_input(input_ev_t ev);
 void ui_render(void);
 const screen_t *ui_top(void);
 int ui_depth(void);
+/* Run the top screen's tick; true if it wants a redraw. */
+bool ui_tick(void);
+/* True if the top screen has a tick, so the loop must not block forever. */
+bool ui_wants_tick(void);
+/* Replace the top screen with `s` (the root is never replaced). */
+void ui_replace(const screen_t *s);
+
+/* Milliseconds from the platform's clock (set at boot; tests set a fake). */
+uint32_t ui_now_ms(void);
+void ui_set_clock(uint32_t (*fn)(void));
+
+/* A one-line machine-readable note on what a screen concluded ("seed 12
+   73c5da0a"), for the QEMU harness and host tests to check without reading
+   pixels. Silent unless a hook is set; never carries a secret. */
+void ui_note(const char *fmt, ...);
+void ui_set_note_hook(void (*fn)(const char *note));
 void ui_set_hold_handler(void (*fn)(void));
 
 /* ---- Widgets ----------------------------------------------------------- */

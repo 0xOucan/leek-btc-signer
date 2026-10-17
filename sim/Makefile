@@ -32,10 +32,11 @@ VERSION  := $(shell git describe --always --dirty 2>/dev/null || echo dev)
 
 # Suites that depend on the display profile run once per profile; the rest
 # once.
-PER_PROFILE := test_gfx test_ui
+PER_PROFILE := test_gfx test_ui test_qr_view test_screens
 ONCE        := test_input test_encoder test_wally test_btc test_psbt \
                test_cbor test_ur test_ur_fountain test_ur_decoder test_ur_encoder \
-               test_qrcode test_qr_decode test_qr_encode
+               test_qrcode test_qr_decode test_qr_encode test_scan test_widgets \
+               test_text_entry
 
 B := build
 
@@ -61,7 +62,7 @@ test: $(WALLY_OBJ) $(QUIRC)
 	done
 	@set -e; for p in $(PROFILES); do for t in $(PER_PROFILE); do \
 	  mkdir -p $(B)/$$p; \
-	  $(CC) $(CFLAGS) $(SAN) -DLBS_DISPLAY_$$p -o $(B)/$$p/$$t $$t.c $(CORE) $(WALLY_OBJ) && ./$(B)/$$p/$$t; \
+	  $(CC) $(CFLAGS) $(SAN) -DLBS_DISPLAY_$$p -o $(B)/$$p/$$t $$t.c $(CORE) $(QUIRC) $(WALLY_OBJ) -lm && ./$(B)/$$p/$$t; \
 	done; done
 
 shots: $(WALLY_OBJ)

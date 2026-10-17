@@ -72,17 +72,27 @@ QEMU lacks, so whole user flows run on the real firmware image:
 
 ```
 host → device   K <event>          UP DOWN OK BACK HOLD
-host → device   Q <payload>        a QR payload, as if quirc had decoded it
-                                   (binary payloads are hex-encoded: QH <hex>)
-device → host   F <base64 frame>   the framebuffer (palette indices) whenever it
-                                   changes; 1 KB for oled, up to 37.5 KB for tft320
+host → device   Q <hex>            the bytes of one decoded QR frame, as the camera's
+                                   reader would return them (hex, so CompactSeedQR's
+                                   binary crosses intact)
+host → device   R                  resend the current frame
+device → host   F <w> <h> <base64> the framebuffer (palette indices) whenever it
+                                   changes; 8 KB for oled128, up to 37.5 KB for tft320
 device → host   S <screen-id>      the current screen, for assertions
-device → host   A                  the event was handled and its frame sent
+device → host   N <note>           what a screen concluded, e.g. "seed 12 73c5da0a"
+                                   or "psbt 1234 9f86d081"; never a secret
+device → host   A                  the input or frame was handled and its frame sent
+device → host   E <message>        a harness error
 ```
 
-`scripts/qemu-flow.py` drives this through `scripts/qemu_harness.py`, so a test reads like a
-SeedSigner flow test: scan a SeedQR, confirm the fingerprint, scan a PSBT, and
-check the signed UR that comes out.
+A `Q` frame goes into the same mailbox (`src/core/qr-source.c`) the camera
+fills on the board, so everything from the Scan screen down is the code that
+runs on the device. `scripts/qemu-flow.py` drives this through
+`scripts/qemu_harness.py`, feeding scans SeedSigner itself recorded
+(`scripts/qr_vectors.py` reads them out of `sim/vectors/seedsigner_qr.h`): a
+CompactSeedQR must show fingerprint `73c5da0a`, an animated UR PSBT and a
+zlib BBQr must arrive with SeedSigner's bytes, and the Scan a SeedQR screen
+must refuse an address as SeedSigner does.
 
 **The harness must never ship.** It is compiled only when `LBS_QEMU_HARNESS=1`.
 That flag is set only in `-qemu` environments, and a release check fails if the

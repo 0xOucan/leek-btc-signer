@@ -12,7 +12,11 @@ FILE(GLOB app_sources
 # with its main() renamed <suite>_main for src/selftest.c to call. The flag
 # comes through cmake_extra_args because sources are chosen at configure
 # time, before any compiler flag is read.
-set(SELFTESTS test_wally test_btc test_psbt)
+set(SELFTESTS test_wally test_btc test_psbt test_cbor test_ur test_ur_fountain
+    test_ur_decoder test_ur_encoder test_qrcode test_qr_decode test_qr_encode test_scan
+    test_widgets test_text_entry)
+# test_qr_view runs on the host for every profile but not here yet: in QEMU
+# quirc misses some of its static codes (ROADMAP.md, Phase 3).
 set(app_include "." "core" "hal")
 if(LBS_SELFTEST)
     foreach(t ${SELFTESTS})
@@ -30,5 +34,5 @@ endif()
 idf_component_register(
     SRCS ${app_sources}
     INCLUDE_DIRS ${app_include}
-    REQUIRES libwally-core tinf driver esp_timer esp_driver_uart esp_app_format
+    REQUIRES libwally-core tinf quirc driver esp_timer esp_driver_uart esp_app_format
 )

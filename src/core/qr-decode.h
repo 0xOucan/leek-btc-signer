@@ -45,9 +45,10 @@
  * Memory
  *
  * No allocation. The caller provides the decoder (a few tens of KB, for the
- * UR fountain scratch) and an arena for the frames; both belong in PSRAM on
- * the device. qr_decoder_reset() wipes both, and must be called when a scan
- * ends: a scanned seed is in there.
+ * UR fountain scratch) and an arena for the frames. A scanned seed's words
+ * are kept in the decoder and its frame is never copied into the arena, so
+ * the decoder belongs in internal RAM (sec_alloc) and the arena may be PSRAM.
+ * qr_decoder_reset() wipes both, and must be called when a scan ends.
  */
 
 #ifndef LBS_QR_DECODE_H
@@ -157,6 +158,12 @@ bool qr_is_seed(qr_type_t t);
  * a zlib stream that does not inflate). Parsing them is psbt-review's job.
  */
 bool qr_decoder_psbt(const qr_decoder_t *d, uint8_t *out, size_t cap, size_t *len);
+
+/** An upper bound on the bytes qr_decoder_psbt() can produce, so the
+ *  caller can size its buffer to the scan rather than to the worst case.
+ *  A zlib BBQr is bounded at 16 times its compressed size. 0 if not a
+ *  complete PSBT scan. */
+size_t qr_decoder_psbt_max(const qr_decoder_t *d);
 
 /** get_seed_phrase() as word indexes. The checksum is not checked here
  *  (SeedSigner checks it when it loads the seed). */

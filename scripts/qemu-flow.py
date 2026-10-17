@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
 Flows on the real firmware image under QEMU (T6). Each flow is a sequence
-of key presses and the screens they must reach, mirroring the host test in
-sim/test_ui.c - the same navigation, proven on the Xtensa build.
+of key presses, and scanned QR frames, and the screens they must reach,
+mirroring the host test in sim/test_ui.c - the same navigation, proven on
+the Xtensa build. Scanned frames are SeedSigner's own, read from
+sim/vectors/seedsigner_qr.h, and the note the Scan screen prints must say
+what SeedSigner decoded from them.
 
     ./scripts/qemu-flow.py                 run every flow
     ./scripts/qemu-flow.py --frames DIR    also save each screen as a PPM
@@ -13,8 +16,20 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from qemu_harness import Device  # noqa: E402
+import hashlib  # noqa: E402
+import qr_vectors  # noqa: E402
 
-# (keys to press, screen expected after them)
+
+def recorded(name):
+    """A scan SeedSigner recorded: feed its frames (stopping when the
+    device completes it) and expect the PSBT SeedSigner got from it."""
+    frames, psbt = qr_vectors.scan(name)
+    digest = hashlib.sha256(bytes.fromhex(psbt)).hexdigest()[:8]
+    return ("SCAN", frames, "psbt %d %s" % (len(psbt) // 2, digest))
+
+
+# (actions, screen expected after them[, note expected]). An action is a key
+# name, a QR frame (bytes or str), or recorded(...).
 FLOWS = {
     "home-menus": [
         ([], "HOME"),
@@ -34,7 +49,50 @@ FLOWS = {
         (["UP", "DOWN", "OK", "BACK"], "IO_TEST"),   # counted, not obeyed
         (["HOLD"], "HOME"),
     ],
+    "scan-compactseedqr": [
+        ([], "HOME"),
+        (["OK"], "SCAN"),
+        ([bytes(16)], "SCAN_RESULT", "seed 12 73c5da0a"),
+        (["BACK"], "HOME"),
+    ],
+    "scan-seedqr-wrong-type": [
+        (["DOWN", "OK", "OK"], "SCAN_SEED"),
+        (["bitcoin:bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"], "SCAN_RESULT",
+         "wrong-type bitcoin_address"),
+        (["BACK"], "LOAD_SEED"),
+    ],
+    "scan-animated-ur-psbt": [
+        (["OK"], "SCAN"),
+        ([recorded("ur_psbt_3_medium_lossy")], "SCAN_RESULT"),
+        (["HOLD"], "HOME"),
+    ],
+    "scan-bbqr-zlib": [
+        (["OK"], "SCAN"),
+        ([recorded("bbqr_5_Z_shuffled")], "SCAN_RESULT"),
+    ],
+    "scan-invalid": [
+        (["OK"], "SCAN"),
+        (["hello world"], "SCAN_RESULT", "invalid"),
+    ],
 }
+
+KEYS = {"UP", "DOWN", "OK", "BACK", "HOLD"}
+
+
+def act(dev, a):
+    """Do one action; return the note it must produce, if any."""
+    if isinstance(a, tuple) and a[0] == "SCAN":
+        _, frames, want = a
+        for f in frames:
+            dev.qr(f)
+            if dev.screen != "SCAN":
+                break
+        return want
+    if isinstance(a, str) and a in KEYS:
+        dev.key(a)
+        return None
+    dev.qr(a)
+    return None
 
 # Extra checks on the frame after a step: (flow, step) -> function(dev).
 def io_counts(dev):
@@ -64,10 +122,15 @@ def main():
     for name, steps in FLOWS.items():
         try:
             with Device() as dev:
-                for i, (keys, screen) in enumerate(steps):
-                    for k in keys:
-                        dev.key(k)
+                for i, step in enumerate(steps):
+                    actions, screen = step[0], step[1]
+                    want = step[2] if len(step) > 2 else None
+                    for a in actions:
+                        want = act(dev, a) or want
                     assert dev.screen == screen, "expected %s, on %s" % (screen, dev.screen)
+                    if want:
+                        assert dev.notes and dev.notes[-1] == want, \
+                            "expected note %r, got %r" % (want, dev.notes[-1:])
                     assert dev.frame is not None, "no frame received"
                     if (name, i) in CHECKS:
                         CHECKS[(name, i)](dev)

@@ -30,17 +30,24 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner port  ████████░░░░░░░░░░░░  about 40%
+SeedSigner  ██░░░░░░░░░░░░░░░░░░  11 of 109 views (10%)
 ```
 
-![Progress by phase](docs/img/progress.svg)
+![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
 
-Each phase is weighted by the work it holds, so the total is an estimate of
-effort done, not a count of tasks. "Done" means proven on the host and in
-QEMU against SeedSigner's own behaviour; nothing has run on the board yet.
-The hard-to-verify parts (keys, PSBT rules, QR formats) come first on purpose;
-most of what remains is screens. The tasks behind each bar are in
-[ROADMAP.md](ROADMAP.md).
+**Progress is measured against SeedSigner itself.** The denominator is every
+View class in SeedSigner's source, the screen-steps a SeedSigner user can
+reach (109 of them). A view counts only when the device does what
+SeedSigner's view does and a test proves it, in QEMU or on the host. Each
+view weighs the same. The per-view list, with the test behind every tick, is
+[docs/COVERAGE.md](docs/COVERAGE.md); `scripts/coverage.py` draws the chart.
+
+The figure starts low on purpose: so far the work went into what sits under
+the screens, the parts that are hard to get right and that the views reuse:
+keys and addresses, the PSBT rules and signing, every QR format, and the
+screen engine. All of it is already proven against SeedSigner's own code
+(see [How it is verified](#how-it-is-verified)), so from here most views
+are screens on top of it.
 
 ## SeedSigner and Leek BTC Signer, side by side
 
@@ -63,13 +70,13 @@ most of what remains is screens. The tasks behind each bar are in
 |---|---|---|
 | SeedQR, CompactSeedQR: scan and show | ✅ | 🟡 logic done, matches SeedSigner; screens next |
 | Seeds from words, dice, coin flips | ✅ | 🟡 logic done; screens next |
-| BIP-39 passphrase | ✅ | 🟡 logic done; screens next |
+| BIP-39 passphrase | ✅ | 🟡 logic and the character wheel done; screen next |
 | xpub export: static, Specter, animated UR | ✅ | 🟡 output identical to SeedSigner's; screens next |
-| PSBT scan: UR, BBQr, Specter, base64, base43 | ✅ | 🟡 decoding matches frame by frame; camera next |
-| PSBT review and the anti-forgery checks | ✅ | ✅ matches, plus three stricter refusals (below) |
+| PSBT scan: UR, BBQr, Specter, base64, base43 | ✅ | 🟡 Scan screen works end to end in QEMU, matching SeedSigner frame by frame; camera needs the board |
+| PSBT review and the anti-forgery checks | ✅ | ✅ matches, plus three stricter refusals (below); amounts display as SeedSigner's |
 | PSBT signing: segwit, nested, legacy, taproot | ✅ | ✅ byte-identical signed PSBTs (taproot verified) |
 | Animated UR output of the signed PSBT | ✅ | 🟡 parts identical to SeedSigner's; screen next |
-| Address verification | ✅ | 🟡 logic done; screens next |
+| Address verification | ✅ | 🟡 logic done; address display identical to SeedSigner's; flow next |
 | Multisig: descriptors, cosigner checks | ✅ | 🟡 PSBT checks done; descriptor import in Phase 6 |
 | BIP-85 child seeds | ✅ | 🟡 logic done; screens in Phase 6 |
 | Message signing | ✅ | 🟡 request decoding done; signing in Phase 6 |
@@ -90,7 +97,10 @@ most of what remains is screens. The tasks behind each bar are in
 | Address verification | Logic done |
 | QR decoding: UR, BBQr, Specter, base64/base43 PSBTs, every SeedQR form, addresses, sign-message | Done on the host, matches SeedSigner frame by frame |
 | QR output: SeedQR, xpubs (static, Specter, UR), animated UR PSBTs | Done on the host, matches SeedSigner part by part |
-| Camera scanning, the scan and QR screens | Next (camera needs the board) |
+| The Scan screen: progress, SeedSigner's wrong-type and invalid errors | Done in QEMU, fed SeedSigner's recorded scans |
+| QR display: static and animated codes, brightness keys, read back off the framebuffer | Done on the host and QEMU |
+| Status screens, amounts and addresses as SeedSigner draws them | Done |
+| Camera capture and viewfinder | Needs the board |
 | Optional vault for a stored seed, opt-in and at the user's own risk | Phase 5 |
 
 Each status has evidence behind it in [ROADMAP.md](ROADMAP.md).
@@ -119,6 +129,8 @@ embit version it pins and record what it does:
 | QR scans (SeedSigner's own decode tests and generated ones), frame by frame | 515 scans, 4827 frames | all match; descriptors wait for multisig |
 | QR type detection | 2756 frames | all match |
 | QR output parts | 6246 | all identical |
+| QR symbols, module by module (python-qrcode) | 33, versions 1-25 | all identical |
+| Amounts and address layouts SeedSigner's components draw | 720 | 704 identical; 12 tiny btc amounts deliberately not in "9.9E-7" form; 4 widths both refuse |
 
 The PSBT cases break down like this:
 

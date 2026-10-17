@@ -1,0 +1,7 @@
+# Self-test image only (s3cam-qemu-selftest): the same layout as
+# partitions.csv with a 15 MB app, because the image carries every vector
+# suite, SeedSigner's recorded QR scans among them (about 3 MB of data).
+#
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+factory,  app,  factory, 0x10000,  0xF00000,

@@ -6,6 +6,7 @@ Drive the s3cam-qemu firmware through the UART harness (docs/TESTING.md).
         dev.key("DOWN"); dev.key("OK")
         dev.wait_screen("LOAD_SEED")
         dev.save_frame("load.ppm")
+        dev.qr(b"...")              # a scanned frame, on a Scan screen
 
 The device side is src/hal/qemu-harness.c.
 """
@@ -36,6 +37,7 @@ class Device:
         self.screen = None
         self.frame = None   # (w, h, bytes)
         self.acks = 0
+        self.notes = []
 
     def __enter__(self):
         self.proc = subprocess.Popen(
@@ -66,6 +68,8 @@ class Device:
         elif line.startswith("F "):
             _, w, h, data = line.split(" ", 3)
             self.frame = (int(w), int(h), base64.b64decode(data))
+        elif line.startswith("N "):
+            self.notes.append(line[2:])
         elif line.startswith("E "):
             raise AssertionError("harness error: " + line)
 
@@ -99,6 +103,20 @@ class Device:
         self.proc.stdin.write(("K %s\n" % name).encode())
         self.proc.stdin.flush()
         self.wait_line(lambda l: self.acks >= want)
+
+    def qr(self, data):
+        """Hand the device one decoded QR frame, as the camera would, and
+        wait until the scan screen has taken it and redrawn. Returns the
+        notes it printed meanwhile."""
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        start = len(self.notes)
+        want = self.acks + 1
+        self.proc.stdin.write(b"Q " + data.hex().encode() + b"\n")
+        self.proc.stdin.flush()
+        self.wait_line(lambda l: self.acks >= want and
+                       any(n.startswith("frame ") for n in self.notes[start:]))
+        return self.notes[start:]
 
     def wait_screen(self, name, timeout=10):
         if self.screen == name:

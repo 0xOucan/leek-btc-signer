@@ -43,9 +43,14 @@ static const char *PARTS[] = {
 
 #define N_PARTS (sizeof PARTS / sizeof PARTS[0])
 
-static UrEncoder enc;
-static UrDecoder dec;
-static uint8_t arena[64 * 1024];
+/* On the heap, not static: the suite also runs in the QEMU self-test
+   image, whose internal RAM cannot hold every suite's buffers at once. */
+#define ARENA_SIZE (32 * 1024)
+static UrEncoder *enc_p;
+static UrDecoder *dec_p;
+static uint8_t *arena;
+#define enc (*enc_p)
+#define dec (*dec_p)
 
 static void test_matches_the_reference(void)
 {
@@ -58,7 +63,7 @@ static void test_matches_the_reference(void)
     CHECK(ur_encoder_init(&enc, "bytes", msg, sizeof msg, 60), "init refused");
     CHECK(enc.seq_len == 5 && enc.fragment_len == 50,
           "nominal fragment length is %u x %u, bc-ur says 5 x 50",
-          enc.seq_len, enc.fragment_len);
+          (unsigned)enc.seq_len, (unsigned)enc.fragment_len);
 
     for (size_t i = 0; i < N_PARTS; i++) {
         char part[512];
@@ -83,7 +88,7 @@ static uint32_t transmit(const uint8_t *msg, size_t len, size_t max_frag,
     if (!ur_encoder_init(&enc, "eth-signature", msg, len, max_frag)) {
         return 0;
     }
-    ur_decoder_init(&dec, arena, sizeof arena);
+    ur_decoder_init(&dec, arena, ARENA_SIZE);
 
     for (uint32_t sent = 1; sent <= 2000; sent++) {
         char part[1200];
@@ -133,7 +138,7 @@ static void test_round_trip(void)
             /* With nothing lost, the plain parts alone must suffice. */
             if (ur_encoder_init(&enc, "eth-signature", msg, len, frag)) {
                 CHECK(took == enc.seq_len, "%zu bytes took %u parts, not %u",
-                      len, took, enc.seq_len);
+                      len, (unsigned)took, (unsigned)enc.seq_len);
             }
         }
     }
@@ -149,11 +154,11 @@ static void test_lossy(void)
     }
     for (uint32_t seed = 1; seed <= 40; seed++) {
         const uint32_t took = transmit(msg, 900, 60, 35, seed, seed & 1);
-        CHECK(took != 0, "a 35%% lossy run with seed %u never completed", seed);
+        CHECK(took != 0, "a 35%% lossy run with seed %u never completed", (unsigned)seed);
     }
     /* Losing every plain part is the extreme: only mixed parts get through. */
     if (ur_encoder_init(&enc, "eth-signature", msg, 300, 60)) {
-        ur_decoder_init(&dec, arena, sizeof arena);
+        ur_decoder_init(&dec, arena, ARENA_SIZE);
         enc.seq_num = enc.seq_len;
         bool done = false;
         for (int i = 0; i < 500 && !done; i++) {
@@ -180,10 +185,15 @@ static void test_single_part_and_refusals(void)
 
     /* 2000 fragments of 10 bytes. (Just over 1024 * 10 bytes is not enough:
        SeedSigner's rule then settles on 11-byte fragments, and fewer.) */
-    static uint8_t big[2000 * UR_MIN_FRAGMENT_LEN];
-    memset(big, 1, sizeof big);
-    CHECK(!ur_encoder_init(&enc, "bytes", big, sizeof big, UR_MIN_FRAGMENT_LEN),
+    uint8_t *big = malloc(2000 * UR_MIN_FRAGMENT_LEN);
+    if (big == NULL) {
+        CHECK(0, "out of memory");
+        return;
+    }
+    memset(big, 1, 2000 * UR_MIN_FRAGMENT_LEN);
+    CHECK(!ur_encoder_init(&enc, "bytes", big, 2000 * UR_MIN_FRAGMENT_LEN, UR_MIN_FRAGMENT_LEN),
           "a message needing more than UR_MAX_PARTS fragments was accepted");
+    free(big);
     CHECK(!ur_encoder_init(&enc, "Bytes", sig, sizeof sig, 60),
           "an uppercase type was accepted for encoding");
     CHECK(!ur_encoder_init(&enc, "bytes", sig, 0, 60), "an empty message was accepted");
@@ -204,10 +214,19 @@ static void test_single_part_and_refusals(void)
 
 int main(void)
 {
+    enc_p = test_alloc(sizeof *enc_p);
+    dec_p = test_alloc(sizeof *dec_p);
+    arena = test_alloc(ARENA_SIZE);
+    if (!enc_p || !dec_p || !arena) {
+        CHECK(0, "out of memory");
+        test_free_all();
+        return CHECK_DONE("test_ur_encoder");
+    }
     test_matches_the_reference();
     test_round_trip();
     test_lossy();
     test_single_part_and_refusals();
 
+    test_free_all();
     return CHECK_DONE("test_ur_encoder");
 }

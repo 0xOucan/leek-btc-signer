@@ -4,11 +4,12 @@
  * scripts/check-release.sh fails a release image that contains it.
  *
  *   host -> device   K <UP|DOWN|OK|BACK|HOLD>   an input event
- *                    Q <payload>                a decoded QR (T23)
+ *                    Q <hex>                    a decoded QR frame's bytes
  *                    R                          resend the current frame
  *   device -> host   F <w> <h> <base64>         the framebuffer, 4-bit
  *                                               palette indices, on change
  *                    S <screen>                 the screen on top
+ *                    N <note>                   what a screen concluded
  *                    E <message>                a harness error
  */
 #pragma once

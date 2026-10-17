@@ -11,22 +11,24 @@
 
 #include <stdio.h>
 
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
-int test_wally_main(void);
-int test_btc_main(void);
-int test_psbt_main(void);
+#define SUITES(X) X(test_wally) X(test_btc) X(test_psbt) X(test_cbor) X(test_ur)  \
+    X(test_ur_fountain) X(test_ur_decoder) X(test_ur_encoder) X(test_qrcode)   \
+    X(test_qr_decode) X(test_qr_encode) X(test_scan) X(test_widgets)      \
+    X(test_text_entry)
 
+#define DECLARE(t) int t##_main(void);
+SUITES(DECLARE)
+
+#define ENTRY(t) { #t, t##_main },
 static const struct {
     const char *name;
     int (*run)(void);
-} suites[] = {
-    { "test_wally", test_wally_main },
-    { "test_btc", test_btc_main },
-    { "test_psbt", test_psbt_main },
-};
+} suites[] = { SUITES(ENTRY) };
 
 static int failed;
 static SemaphoreHandle_t done;
@@ -37,6 +39,9 @@ static void runner(void *arg)
 {
     (void)arg;
     for (size_t i = 0; i < sizeof suites / sizeof suites[0]; i++) {
+        printf("SELFTEST-HEAP %s free %u largest %u\n", suites[i].name,
+               (unsigned)heap_caps_get_free_size(MALLOC_CAP_8BIT),
+               (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
         int rc = suites[i].run();
         printf("SELFTEST %s %s\n", suites[i].name, rc == 0 ? "PASS" : "FAIL");
         failed += rc != 0;

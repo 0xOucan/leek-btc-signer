@@ -26,11 +26,19 @@
 
 #define N(a) (sizeof(a) / sizeof((a)[0]))
 
-static uint8_t buf[1 << 18];
-static uint8_t part[1 << 14];
-static uint8_t arena[1 << 20];
-static qr_decoder_t dec;
-static qr_encoder_t enc;
+/* Sized for the vectors (the largest PSBT is 8.3 KB) and kept off the static
+   image where large, so the suite also runs in the QEMU self-test image. */
+#define ARENA_SIZE (48 * 1024)
+#define BUF_SIZE (16 * 1024)
+#define PART_SIZE 4096
+#define PSBT_SIZE (10 * 1024)
+static uint8_t *buf, *part, *raw, *got, *modules;
+static char *h;
+static uint8_t *arena;
+static qr_decoder_t *dec_p;
+static qr_encoder_t *enc_p;
+#define dec (*dec_p)
+#define enc (*enc_p)
 static struct quirc *qr;
 
 static void rand_fill(void *p, unsigned n)
@@ -67,7 +75,6 @@ static bool load(seed_t *s, const char *mnemonic, const char *pass)
 static unsigned versions_seen[QRCODE_MAX_VERSION + 1];
 static bool round_trip(const uint8_t *data, size_t len, int scale)
 {
-    static uint8_t modules[4096];
     QRCode code;
     const int v = qrcode_fit(&code, modules, QRCODE_MAX_VERSION, ECC_LOW, data, (uint16_t)len);
     if (v < 0) {
@@ -95,29 +102,28 @@ static bool round_trip(const uint8_t *data, size_t len, int scale)
     quirc_end(qr);
     /* Random data can look like a finder pattern, so quirc may report a
        phantom code beside the real one: any code that decodes right counts. */
-    for (int i = 0; i < quirc_count(qr); i++) {
+    struct quirc_data *qd = malloc(sizeof *qd);
+    bool found = false;
+    for (int i = 0; qd != NULL && !found && i < quirc_count(qr); i++) {
         struct quirc_code qc;
-        static struct quirc_data qd;
         quirc_extract(qr, i, &qc);
-        if (quirc_decode(&qc, &qd) == QUIRC_SUCCESS && (size_t)qd.payload_len == len &&
-            memcmp(qd.payload, data, len) == 0) {
-            return true;
-        }
+        found = quirc_decode(&qc, qd) == QUIRC_SUCCESS && (size_t)qd->payload_len == len &&
+                memcmp(qd->payload, data, len) == 0;
     }
-    return false;
+    free(qd);
+    return found;
 }
 
 static void test_seedqr(void)
 {
     printf("== SeedQR and CompactSeedQR\n");
-    static char h[200];
     seed_t s;
     for (size_t i = 0; i < N(QR_SEEDQR); i++) {
         const qrv_seedqr_t *v = &QR_SEEDQR[i];
         CHECK(load(&s, v->mnemonic, ""), "seed %zu", i);
 
-        CHECK(qr_encode_seedqr(&enc, &s, buf, sizeof buf), "SeedQR %zu", i);
-        size_t n = qr_encoder_next_part(&enc, part, sizeof part);
+        CHECK(qr_encode_seedqr(&enc, &s, buf, BUF_SIZE), "SeedQR %zu", i);
+        size_t n = qr_encoder_next_part(&enc, part, PART_SIZE);
         CHECK(n == strlen(v->standard) && memcmp(part, v->standard, n) == 0,
               "SeedQR %zu differs from SeedSigner's", i);
         CHECK(qr_encoder_seq_len(&enc) == 1, "SeedQR is static");
@@ -125,8 +131,8 @@ static void test_seedqr(void)
         qr_decoder_reset(&dec);
         CHECK(qr_decoder_add(&dec, part, n) == QR_STATUS_COMPLETE, "SeedQR %zu did not decode", i);
 
-        CHECK(qr_encode_compact_seedqr(&enc, &s, buf, sizeof buf), "Compact %zu", i);
-        n = qr_encoder_next_part(&enc, part, sizeof part);
+        CHECK(qr_encode_compact_seedqr(&enc, &s, buf, BUF_SIZE), "Compact %zu", i);
+        n = qr_encoder_next_part(&enc, part, PART_SIZE);
         hex(part, n, h);
         CHECK(strcmp(h, v->compact_hex) == 0, "CompactSeedQR %zu differs from SeedSigner's", i);
         CHECK(round_trip(part, n, 2), "CompactSeedQR %zu did not read back", i);
@@ -151,7 +157,7 @@ static void test_seedqr(void)
 static bool parts_match(const qrv_density_t *d, unsigned *count)
 {
     for (unsigned k = 0; k < d->n_parts; k++) {
-        const size_t n = qr_encoder_next_part(&enc, part, sizeof part - 1);
+        const size_t n = qr_encoder_next_part(&enc, part, PART_SIZE - 1);
         part[n] = '\0';
         if (n != strlen(d->parts[k]) || memcmp(part, d->parts[k], n) != 0) {
             printf("  part %u: %s\n  SeedSigner: %s\n", k, part, d->parts[k]);
@@ -165,15 +171,14 @@ static bool parts_match(const qrv_density_t *d, unsigned *count)
 static void test_xpubs(void)
 {
     printf("== xpubs: static, Specter, UR crypto-account\n");
-    static char h[4096];
     unsigned parts = 0, read_back = 0;
     seed_t s;
     for (size_t i = 0; i < N(QR_XPUBS); i++) {
         const qrv_xpub_t *x = &QR_XPUBS[i];
         CHECK(load(&s, x->mnemonic, x->passphrase), "seed %zu", i);
 
-        CHECK(qr_encode_xpub(&enc, &s, x->path, x->net, buf, sizeof buf), "xpub %zu", i);
-        size_t n = qr_encoder_next_part(&enc, part, sizeof part - 1);
+        CHECK(qr_encode_xpub(&enc, &s, x->path, x->net, buf, BUF_SIZE), "xpub %zu", i);
+        size_t n = qr_encoder_next_part(&enc, part, PART_SIZE - 1);
         part[n] = '\0';
         CHECK(strcmp((char *)part, x->xpub_static) == 0, "%s net %d: static %s, SeedSigner %s",
               x->path, x->net, part, x->xpub_static);
@@ -183,21 +188,21 @@ static void test_xpubs(void)
         }
 
         for (int d = 0; d < 3; d++) {
-            CHECK(qr_encode_xpub_specter(&enc, &s, x->path, x->net, x->specter[d].density, buf, sizeof buf),
+            CHECK(qr_encode_xpub_specter(&enc, &s, x->path, x->net, x->specter[d].density, buf, BUF_SIZE),
                   "specter %zu", i);
             CHECK(qr_encoder_seq_len(&enc) == x->specter[d].n_parts, "%s: Specter part count", x->path);
             CHECK(parts_match(&x->specter[d], &parts), "%s net %d density %d: Specter parts differ",
                   x->path, x->net, d);
             /* A second cycle starts again at part 1. */
-            n = qr_encoder_next_part(&enc, part, sizeof part - 1);
+            n = qr_encoder_next_part(&enc, part, PART_SIZE - 1);
             CHECK(n == strlen(x->specter[d].parts[0]) && memcmp(part, x->specter[d].parts[0], n) == 0,
                   "Specter parts do not cycle");
 
-            const size_t c = qr_crypto_account(&s, x->path, x->net, buf, sizeof buf);
+            const size_t c = qr_crypto_account(&s, x->path, x->net, buf, BUF_SIZE);
             hex(buf, c, h);
             CHECK(strcmp(h, x->ur[d].cbor_hex) == 0, "%s net %d: crypto-account CBOR differs",
                   x->path, x->net);
-            CHECK(qr_encode_xpub_ur(&enc, &s, x->path, x->net, x->ur[d].density, buf, sizeof buf),
+            CHECK(qr_encode_xpub_ur(&enc, &s, x->path, x->net, x->ur[d].density, buf, BUF_SIZE),
                   "ur %zu", i);
             CHECK(parts_match(&x->ur[d], &parts), "%s net %d density %d: UR parts differ",
                   x->path, x->net, d);
@@ -211,12 +216,11 @@ static void test_xpubs(void)
 static void test_psbts(void)
 {
     printf("== PSBTs: UR crypto-psbt, out and back in\n");
-    static uint8_t raw[1 << 16], got[1 << 16];
     unsigned parts = 0, read_back = 0;
     for (size_t i = 0; i < N(QR_PSBT_OUT); i++) {
         const qrv_psbt_out_t *v = &QR_PSBT_OUT[i];
         const size_t len = unhex(v->psbt_hex, raw);
-        CHECK(qr_encode_psbt_ur(&enc, raw, len, v->density, buf, sizeof buf), "psbt %zu", i);
+        CHECK(qr_encode_psbt_ur(&enc, raw, len, v->density, buf, BUF_SIZE), "psbt %zu", i);
         const qrv_density_t d = { v->density, NULL, v->parts, v->n_parts };
         CHECK(parts_match(&d, &parts), "PSBT %zu density %d: parts differ", i, v->density);
 
@@ -227,22 +231,54 @@ static void test_psbts(void)
         const uint32_t seq = qr_encoder_seq_len(&enc);
         qr_status_t st = QR_STATUS_FALSE;
         for (uint32_t k = 0; k < seq * 4 + 10 && st != QR_STATUS_COMPLETE; k++) {
-            const size_t n = qr_encoder_next_part(&enc, part, sizeof part);
+            const size_t n = qr_encoder_next_part(&enc, part, PART_SIZE);
             if (k < seq / 3 || k % 3 == 2) {
                 continue;
             }
             if (k < 12) {
-                CHECK(round_trip(part, n, 2), "PSBT %zu part %u did not read back", i, k);
+                CHECK(round_trip(part, n, 2), "PSBT %zu part %u did not read back", i, (unsigned)k);
                 read_back++;
             }
             st = qr_decoder_add(&dec, part, n);
         }
         size_t n = 0;
-        CHECK(st == QR_STATUS_COMPLETE && qr_decoder_psbt(&dec, got, sizeof got, &n) &&
+        CHECK(st == QR_STATUS_COMPLETE && qr_decoder_psbt(&dec, got, PSBT_SIZE, &n) &&
               n == len && memcmp(got, raw, len) == 0, "PSBT %zu did not come back whole", i);
     }
     printf("   %zu encodings, %u parts identical to SeedSigner's, %u read back\n",
            N(QR_PSBT_OUT), parts, read_back);
+}
+
+/* Module for module against python-qrcode, SeedSigner's encoder: the same
+   version chosen, and at the same mask the same symbol. */
+static void test_matrices(void)
+{
+    printf("== QR symbols identical to python-qrcode, versions 1-25\n");
+    unsigned same = 0;
+    for (size_t i = 0; i < N(QR_MATRICES); i++) {
+        const qrv_matrix_t *m = &QR_MATRICES[i];
+        QRCode code;
+        const int v = qrcode_fit(&code, modules, QRCODE_MAX_VERSION, ECC_LOW,
+                                 (const uint8_t *)m->data, (uint16_t)m->len);
+        CHECK(v == m->version, "matrix %zu: version %d, python-qrcode %u", i, v, m->version);
+        if (qrcode_initBytesMask(&code, modules, m->version, ECC_LOW, (const uint8_t *)m->data,
+                                 (uint16_t)m->len, (int8_t)m->mask) != 0) {
+            CHECK(0, "matrix %zu: did not encode", i);
+            continue;
+        }
+        bool ok = true;
+        for (int y = 0; y < code.size && ok; y++) {
+            for (int x = 0; x < code.size && ok; x++) {
+                const size_t k = (size_t)y * code.size + (size_t)x;
+                unsigned byte;
+                sscanf(m->modules_hex + 2 * (k / 8), "%2x", &byte);
+                ok = qrcode_getModule(&code, (uint8_t)x, (uint8_t)y) == (((byte << (k % 8)) & 0x80) != 0);
+            }
+        }
+        CHECK(ok, "matrix %zu (version %u, mask %u) differs", i, m->version, m->mask);
+        same += ok;
+    }
+    printf("   %u of %zu symbols identical\n", same, N(QR_MATRICES));
 }
 
 static void test_qr_symbols(void)
@@ -260,7 +296,6 @@ static void test_qr_symbols(void)
        1 in 50 at v23, 1 in 5 at v24, 1 in 2 at v25), which zbar - SeedSigner's
        reader - reads; there the encoder was checked bit for bit against
        python-qrcode, SeedSigner's encoder, at versions 1-25. */
-    static uint8_t modules[4096];
     QRCode code;
     static uint8_t big[1300];
     srand(7);
@@ -294,11 +329,28 @@ int main(void)
 {
     btc_init(rand_fill);
     qr = quirc_new();
-    qr_decoder_init(&dec, arena, sizeof arena);
+    arena = test_alloc(ARENA_SIZE);
+    dec_p = test_alloc(sizeof *dec_p);
+    enc_p = test_alloc(sizeof *enc_p);
+    buf = test_alloc(BUF_SIZE);
+    part = test_alloc(PART_SIZE);
+    raw = test_alloc(PSBT_SIZE);
+    got = test_alloc(PSBT_SIZE);
+    modules = test_alloc(4096);
+    h = test_alloc(4096);
+    CHECK(qr && arena && dec_p && enc_p && buf && part && raw && got && modules && h, "out of memory");
+    if (!qr || !arena || !dec_p || !enc_p || !buf || !part || !raw || !got || !modules || !h) {
+        if (qr) quirc_destroy(qr);
+        test_free_all();
+        return CHECK_DONE("test_qr_encode");
+    }
+    qr_decoder_init(&dec, arena, ARENA_SIZE);
     test_seedqr();
     test_xpubs();
     test_psbts();
+    test_matrices();
     test_qr_symbols();
     quirc_destroy(qr);
+    test_free_all();
     return CHECK_DONE("test_qr_encode");
 }

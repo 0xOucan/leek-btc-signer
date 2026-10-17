@@ -448,6 +448,22 @@ qr_status_t qr_decoder_add(qr_decoder_t *d, const uint8_t *data, size_t len)
         break;
     }
 
+    /* A seed is decoded straight from the caller's frame into the decoder's
+       own words, and never copied into the arena, so the arena may sit in
+       PSRAM (secmem.h). */
+    switch (t) {
+    case QR_TYPE_SEED_COMPACTSEEDQR:
+        return add_compact(d, data, len);
+    case QR_TYPE_SEED_SEEDQR:
+        return add_seedqr(d, s, len);
+    case QR_TYPE_SEED_MNEMONIC:
+        return add_mnemonic(d, s, len, false);
+    case QR_TYPE_SEED_FOUR_LETTER_MNEMONIC:
+        return add_mnemonic(d, s, len, true);
+    default:
+        break;
+    }
+
     /* Every other type is one frame, kept whole in the arena. Another frame
        of the same type replaces it, as the reference's add() does. */
     if (!keep_frame(d, data, len)) {
@@ -455,14 +471,6 @@ qr_status_t qr_decoder_add(qr_decoder_t *d, const uint8_t *data, size_t len)
     }
     s = (const char *)d->arena;
     switch (t) {
-    case QR_TYPE_SEED_COMPACTSEEDQR:
-        return add_compact(d, d->arena, len);
-    case QR_TYPE_SEED_SEEDQR:
-        return add_seedqr(d, s, len);
-    case QR_TYPE_SEED_MNEMONIC:
-        return add_mnemonic(d, s, len, false);
-    case QR_TYPE_SEED_FOUR_LETTER_MNEMONIC:
-        return add_mnemonic(d, s, len, true);
     case QR_TYPE_BITCOIN_ADDRESS:
         return add_address(d, s, len);
     case QR_TYPE_SIGN_MESSAGE:
@@ -627,6 +635,38 @@ bool qr_decoder_psbt(const qr_decoder_t *d, uint8_t *out, size_t cap, size_t *le
     }
     default:
         return false;
+    }
+}
+
+size_t qr_decoder_psbt_max(const qr_decoder_t *d)
+{
+    if (!d->complete || !qr_is_psbt(d->type)) {
+        return 0;
+    }
+    switch (d->type) {
+    case QR_TYPE_PSBT_UR2: {
+        size_t n = 0;
+        return ur_decoder_message(&d->ur, &n) ? n : 0;
+    }
+    case QR_TYPE_PSBT_BASE64:
+        return d->frame_len / 4 * 3 + 3;
+    case QR_TYPE_PSBT_BASE43:
+        return d->frame_len + 1;    /* base43 always shrinks; the leading-zero quirk adds one */
+    case QR_TYPE_PSBT_SPECTER:
+        /* The joined text, which is decoded in place in the caller's buffer. */
+        return d->text_used + 4;
+    case QR_TYPE_PSBT_BBQR:
+        if (d->bbqr_encoding == 'H') {
+            return d->text_used / 2 + 1;
+        }
+        if (d->bbqr_encoding == '2') {
+            return d->text_used * 5 / 8 + 5;
+        }
+        /* Inflated: PSBTs compress two to three times; the compressed bytes
+           also sit at the end of the buffer while inflating. */
+        return (d->text_used * 5 / 8 + 5) * 17;
+    default:
+        return 0;
     }
 }
 

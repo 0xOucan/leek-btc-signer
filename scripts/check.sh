@@ -24,7 +24,7 @@ step "No QEMU harness in a board image"
 ./scripts/check-release.sh
 
 step "QEMU: the vector suites on the Xtensa build"
-./scripts/qemu.sh --env s3cam-qemu-selftest --selftest
+SELFTEST_TIMEOUT=${SELFTEST_TIMEOUT:-2400} ./scripts/qemu.sh --env s3cam-qemu-selftest --selftest
 
 step "QEMU: boot and flows on the real image"
 ./scripts/qemu.sh --smoke

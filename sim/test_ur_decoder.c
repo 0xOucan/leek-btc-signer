@@ -40,8 +40,12 @@ static const char *PARTS[] = {
 /* single-part, payload deadbeef as cbor bytes */
 static const char *SINGLE = "ur:bytes/uepmrnwskensotht";
 
-static uint8_t arena[64 * 1024];
-static UrDecoder dec;
+/* On the heap, not static: the suite also runs in the QEMU self-test
+   image, whose internal RAM cannot hold every suite's buffers at once. */
+#define ARENA_SIZE (16 * 1024)
+static uint8_t *arena;
+static UrDecoder *dec_p;
+#define dec (*dec_p)
 
 #define N_PARTS (sizeof PARTS / sizeof PARTS[0])
 
@@ -155,7 +159,8 @@ static void test_mixing_two_messages_is_refused(void)
 
     /* Part 2 of another 250-byte message, five fragments too. */
     static uint8_t other[250];
-    static UrEncoder enc;
+    UrEncoder *enc_p = malloc(sizeof *enc_p);
+#define enc (*enc_p)
     static char part[1024];
     memset(other, 0x55, sizeof other);
     CHECK(ur_encoder_init(&enc, "bytes", other, sizeof other, 60), "encoder init");
@@ -170,6 +175,8 @@ static void test_mixing_two_messages_is_refused(void)
     }
     CHECK(r == UR_PART_COMPLETE, "did not recover after the bad part");
     CHECK(message_is_right(), "assembled the wrong bytes");
+    free(enc_p);
+#undef enc
 }
 
 /* SeedSigner's decoder takes a single-part UR of the same type as the whole
@@ -200,7 +207,7 @@ static void test_arena_is_respected(void)
     ur_decoder_init(&small, tiny, sizeof tiny);
     CHECK(ur_decoder_receive(&small, PARTS[0], strlen(PARTS[0])) == UR_PART_REJECTED,
           "a 250-byte message was started in a 300-byte arena");
-    ur_decoder_init(&small, arena, sizeof arena);
+    ur_decoder_init(&small, arena, ARENA_SIZE);
 }
 
 static void test_garbage_is_refused(void)
@@ -238,7 +245,14 @@ static void test_garbage_is_refused(void)
 
 int main(void)
 {
-    ur_decoder_init(&dec, arena, sizeof arena);
+    arena = test_alloc(ARENA_SIZE);
+    dec_p = test_alloc(sizeof *dec_p);
+    if (!arena || !dec_p) {
+        CHECK(0, "out of memory");
+        test_free_all();
+        return CHECK_DONE("test_ur_decoder");
+    }
+    ur_decoder_init(&dec, arena, ARENA_SIZE);
 
     test_in_order();
     test_starting_late();
@@ -249,5 +263,6 @@ int main(void)
     test_arena_is_respected();
     test_garbage_is_refused();
 
+    test_free_all();
     return CHECK_DONE("test_ur_decoder");
 }

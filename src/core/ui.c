@@ -3,7 +3,9 @@
  */
 #include "ui.h"
 
+#include <stdarg.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #include "gfx.h"
 
@@ -95,4 +97,56 @@ void ui_render(void)
 }
 
 const screen_t *ui_top(void) { return depth ? stack[depth - 1] : NULL; }
+
+bool ui_tick(void)
+{
+    const screen_t *s = ui_top();
+    return s && s->tick ? s->tick(s) : false;
+}
+
+bool ui_wants_tick(void)
+{
+    const screen_t *s = ui_top();
+    return s && s->tick;
+}
+
+void ui_replace(const screen_t *s)
+{
+    if (depth > 1) {
+        ui_pop();
+    }
+    ui_push(s);
+}
+
+static uint32_t (*clock_fn)(void);
+
+uint32_t ui_now_ms(void)
+{
+    return clock_fn ? clock_fn() : 0;
+}
+
+void ui_set_clock(uint32_t (*fn)(void))
+{
+    clock_fn = fn;
+}
+
+static void (*note_hook)(const char *);
+
+void ui_set_note_hook(void (*fn)(const char *note))
+{
+    note_hook = fn;
+}
+
+void ui_note(const char *fmt, ...)
+{
+    if (!note_hook) {
+        return;
+    }
+    char line[160];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(line, sizeof line, fmt, ap);
+    va_end(ap);
+    note_hook(line);
+}
 int ui_depth(void) { return depth; }

@@ -119,6 +119,25 @@ int main(void)
     CHECK(!ui_push(&SECRET), "the stack refuses to overflow");
     ui_home();
 
+    /* T28: ten levels down, BACK walks home one level at a time and HOLD
+       in one step; every level's leave runs on either way, on a replace,
+       and when the whole stack is reset. */
+    leaves = 0;
+    for (int i = 0; i < 10; i++) ui_push(&SECRET);
+    for (int i = 0; i < 10; i++) ui_input(IN_BACK);
+    CHECK(ui_depth() == 1 && leaves == 10, "BACK x10: depth %d, %d leaves", ui_depth(), leaves);
+    leaves = 0;
+    for (int i = 0; i < 10; i++) ui_push(&SECRET);
+    ui_input(IN_HOLD);
+    CHECK(ui_depth() == 1 && leaves == 10, "HOLD: depth %d, %d leaves", ui_depth(), leaves);
+    leaves = 0;
+    ui_push(&SECRET);
+    ui_replace(&SECRET);
+    CHECK(ui_depth() == 2 && leaves == 1, "replace leaves the replaced screen");
+    ui_push(&SECRET);
+    ui_init(&SCREEN_HOME);
+    CHECK(ui_depth() == 1 && leaves == 3, "ui_init leaves every screen, %d", leaves);
+
     /* I/O test counts BACK instead of leaving; HOLD still leaves. */
     screens_set_version("test", "HOST", GFX_PROFILE_NAME, "test");
     press(IN_DOWN, 3);

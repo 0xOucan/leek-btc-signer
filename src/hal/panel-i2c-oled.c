@@ -203,4 +203,16 @@ esp_err_t panel_init(void)
 
 bool panel_present(void) { return ready; }
 
+void panel_set_brightness(int level, int max)
+{
+    /* Contrast from dim to the init value's full range. A camera reads an
+       OLED best a step or two down from full: the lit pixels bloom less. */
+    if (!ready || max <= 0) {
+        return;
+    }
+    const int contrast = 0x10 + (0xFF - 0x10) * level / max;
+    send_cmd(0x81);
+    send_cmd((uint8_t)contrast);
+}
+
 #endif

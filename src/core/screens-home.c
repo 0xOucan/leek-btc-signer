@@ -17,9 +17,6 @@
     static const message_t id_##_msg = { (title_), (body_) };              \
     static const screen_t id_ = SCREEN_MESSAGE(#id_, id_##_msg)
 
-PENDING(SCAN_PENDING, "Scan",
-        "The camera arrives with T9 and the scanner with T32.");
-PENDING(SEEDQR_PENDING, "Scan a SeedQR", "Arrives with T34.");
 PENDING(WORDS12_PENDING, "12-word seed", "Arrives with T34.");
 PENDING(WORDS24_PENDING, "24-word seed", "Arrives with T34.");
 PENDING(CAMERA_SEED_PENDING, "New seed",
@@ -119,7 +116,7 @@ static menu_t tools_menu = { "Tools", tools_items, 5, 0, 0 };
 static const screen_t TOOLS = SCREEN_MENU("TOOLS", tools_menu);
 
 static const menu_item_t load_items[] = {
-    { "Scan a SeedQR", &SEEDQR_PENDING },
+    { "Scan a SeedQR", &SCREEN_SCAN_SEED },
     { "Enter 12-word seed", &WORDS12_PENDING },
     { "Enter 24-word seed", &WORDS24_PENDING },
     { "Create a seed", &TOOLS },
@@ -137,7 +134,7 @@ static menu_t settings_menu = { "Settings", settings_items, 4, 0, 0 };
 static const screen_t SETTINGS = SCREEN_MENU("SETTINGS", settings_menu);
 
 static const menu_item_t home_items[] = {
-    { "Scan", &SCAN_PENDING },
+    { "Scan", &SCREEN_SCAN },
     { "Seeds", &LOAD_SEED },
     { "Tools", &TOOLS },
     { "Settings", &SETTINGS },

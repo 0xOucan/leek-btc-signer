@@ -14,10 +14,14 @@
 #include "esp_random.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "esp_heap_caps.h"
 #include "gfx.h"
 #include "input-queue.h"
 #include "panel.h"
 #include "screens.h"
+#include "screens-common.h"
+#include "secmem.h"
 #include "ui.h"
 #if defined(LBS_QEMU_HARNESS)
 #include "qemu-harness.h"
@@ -30,6 +34,36 @@ static const char *TAG = "lbs";
 static void blinding_rand(void *buf, unsigned len)
 {
     esp_fill_random(buf, len);
+}
+
+/* Secrets: internal RAM or nothing, never PSRAM (secmem.h). */
+static void *internal_alloc(size_t n, bool internal_only)
+{
+    (void)internal_only;
+    return heap_caps_calloc(1, n, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+}
+
+static const sec_backend_t SEC_INTERNAL = { internal_alloc, heap_caps_free };
+
+/* ui_working(): a frame on the panel now, before a slow step. */
+static void flush_now(void)
+{
+    if (panel_present()) {
+        panel_flush();
+    }
+#if defined(LBS_QEMU_HARNESS)
+    qemu_harness_frame();
+#endif
+}
+
+static void brightness(int level)
+{
+    panel_set_brightness(level, QR_BRIGHTNESS_MAX);
+}
+
+static uint32_t now_ms(void)
+{
+    return (uint32_t)(esp_timer_get_time() / 1000);
 }
 
 void app_main(void)
@@ -53,6 +87,7 @@ void app_main(void)
         abort();
     }
 
+    sec_set_backend(&SEC_INTERNAL);
     input_queue_init();
     /* Headless is a working state, not a failure: a loose wire should give
      * a dark screen and a log line, not a board that looks dead. */
@@ -65,6 +100,9 @@ void app_main(void)
     input_hw_start();
 #endif
 
+    ui_set_clock(now_ms);
+    ui_set_flush_hook(flush_now);
+    ui_set_brightness_hook(brightness);
     ui_init(&SCREEN_HOME);
 
 #if defined(LBS_QEMU)
@@ -73,18 +111,29 @@ void app_main(void)
     fflush(stdout);
 #endif
 
+    /* Draw after anything that changed what is shown: a key, or a screen's
+     * tick (a scanned frame). A screen with a tick keeps the wait short;
+     * every other screen sleeps until a key. */
+    bool dirty = true;
     for (;;) {
-        ui_render();
-        if (panel_present()) {
-            panel_flush();
-        }
+        if (dirty) {
+            ui_render();
+            if (panel_present()) {
+                panel_flush();
+            }
 #if defined(LBS_QEMU_HARNESS)
-        qemu_harness_screen(ui_top()->name);
-        qemu_harness_ack();
+            qemu_harness_screen(ui_top()->name);
+            qemu_harness_ack();
 #endif
+            dirty = false;
+        }
         input_ev_t ev;
-        if (input_wait(&ev, -1)) {
+        if (input_wait(&ev, ui_wants_tick() ? UI_TICK_MS : -1)) {
             ui_input(ev);
+            dirty = true;
+        }
+        if (ui_tick()) {
+            dirty = true;
         }
     }
 }

@@ -19,5 +19,6 @@ esp_err_t panel_flush(void)
 }
 
 bool panel_present(void) { return true; }
+void panel_set_brightness(int level, int max) { (void)level; (void)max; }
 
 #endif

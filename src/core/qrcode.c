@@ -445,7 +445,9 @@ static int8_t encodeDataCodewords(BitBucket *dataCodewords, const uint8_t *text,
                                   uint16_t length, uint8_t version) {
     int8_t mode = MODE_BYTE;
 
-    if (isNumeric((char*)text, length)) {
+    /* An empty payload is alphanumeric, as python-qrcode has it ("".isdigit()
+       is false there). */
+    if (length > 0 && isNumeric((char*)text, length)) {
         mode = MODE_NUMERIC;
         bb_appendBits(dataCodewords, 1 << MODE_NUMERIC, 4);
         bb_appendBits(dataCodewords, length, getModeBits(version, MODE_NUMERIC));

@@ -1,34 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="830" height="362" viewBox="0 0 830 362" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="342" viewBox="0 0 860 342" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <style>.t{fill:#57606a;font-size:13px}.h{fill:#24292f;font-size:16px;font-weight:600}.n{fill:#57606a;font-size:12px}.track{fill:#d0d7de}.done{fill:#f7931a}@media (prefers-color-scheme:dark){.t,.n{fill:#9198a1}.h{fill:#e6edf3}.track{fill:#30363d}}</style>
-<text class="h" x="10" y="24">Leek BTC Signer: about 40% of a full SeedSigner port</text>
-<rect class="track" x="10" y="36" width="810" height="14" rx="7"/>
-<rect class="done" x="10" y="36" width="332.1" height="14" rx="7"/>
-<text class="t" x="10" y="84">Phase 0  Platform, display, input, test rig</text>
-<rect class="track" x="330" y="73" width="300" height="12" rx="6"/>
-<rect class="done" x="330" y="73" width="300.0" height="12" rx="6"/>
-<text class="n" x="640" y="84">100%  done (QEMU)</text>
-<text class="t" x="10" y="118">Phase 1  Bitcoin core: seeds, keys, PSBT signing</text>
-<rect class="track" x="330" y="107" width="300" height="12" rx="6"/>
-<rect class="done" x="330" y="107" width="300.0" height="12" rx="6"/>
-<text class="n" x="640" y="118">100%  done</text>
-<text class="t" x="10" y="152">Phase 2  QR codes: read, write, camera</text>
-<rect class="track" x="330" y="141" width="300" height="12" rx="6"/>
-<rect class="done" x="330" y="141" width="180.0" height="12" rx="6"/>
-<text class="n" x="640" y="152">60%  host done, camera next</text>
-<text class="t" x="10" y="186">Phase 3  UI framework</text>
-<rect class="track" x="330" y="175" width="300" height="12" rx="6"/>
-<text class="n" x="640" y="186">0%  next</text>
-<text class="t" x="10" y="220">Phase 4  First version: single-sig flows</text>
-<rect class="track" x="330" y="209" width="300" height="12" rx="6"/>
-<text class="n" x="640" y="220">0%  </text>
-<text class="t" x="10" y="254">Phase 5  Optional vault</text>
-<rect class="track" x="330" y="243" width="300" height="12" rx="6"/>
-<text class="n" x="640" y="254">0%  </text>
-<text class="t" x="10" y="288">Phase 6  Multisig, BIP-85, sign message</text>
-<rect class="track" x="330" y="277" width="300" height="12" rx="6"/>
-<rect class="done" x="330" y="277" width="60.0" height="12" rx="6"/>
-<text class="n" x="640" y="288">20%  logic started</text>
-<text class="t" x="10" y="322">Phase 7  Hardening and release</text>
-<rect class="track" x="330" y="311" width="300" height="12" rx="6"/>
-<text class="n" x="640" y="322">0%  </text>
+<text class="h" x="10" y="24">SeedSigner on Leek BTC Signer: 11 of 109 views (10%)</text>
+<rect class="track" x="10" y="36" width="840" height="14" rx="7"/>
+<rect class="done" x="10" y="36" width="84.8" height="14" rx="7"/>
+<text class="t" x="10" y="84">System</text>
+<rect class="track" x="250" y="73" width="380" height="12" rx="6"/>
+<rect class="done" x="250" y="73" width="126.7" height="12" rx="6"/>
+<text class="n" x="640" y="84">4 of 12 views</text>
+<text class="t" x="10" y="118">Scan</text>
+<rect class="track" x="250" y="107" width="380" height="12" rx="6"/>
+<rect class="done" x="250" y="107" width="190.0" height="12" rx="6"/>
+<text class="n" x="640" y="118">3 of 6 views</text>
+<text class="t" x="10" y="152">Seeds</text>
+<rect class="track" x="250" y="141" width="380" height="12" rx="6"/>
+<rect class="done" x="250" y="141" width="7.9" height="12" rx="6"/>
+<text class="n" x="640" y="152">1 of 48 views</text>
+<text class="t" x="10" y="186">PSBT signing</text>
+<rect class="track" x="250" y="175" width="380" height="12" rx="6"/>
+<text class="n" x="640" y="186">0 of 19 views</text>
+<text class="t" x="10" y="220">Tools</text>
+<rect class="track" x="250" y="209" width="380" height="12" rx="6"/>
+<rect class="done" x="250" y="209" width="25.3" height="12" rx="6"/>
+<text class="n" x="640" y="220">1 of 15 views</text>
+<text class="t" x="10" y="254">Settings</text>
+<rect class="track" x="250" y="243" width="380" height="12" rx="6"/>
+<rect class="done" x="250" y="243" width="95.0" height="12" rx="6"/>
+<text class="n" x="640" y="254">2 of 8 views</text>
+<text class="t" x="10" y="288">Splash</text>
+<rect class="track" x="250" y="277" width="380" height="12" rx="6"/>
+<text class="n" x="640" y="288">0 of 1 views</text>
+<text class="n" x="10" y="332">Each of SeedSigner's views counts when it works on the device and a test proves it (docs/COVERAGE.md).</text>
 </svg>

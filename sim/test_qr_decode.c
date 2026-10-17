@@ -22,9 +22,16 @@
 
 #define N(a) (sizeof(a) / sizeof((a)[0]))
 
-static qr_decoder_t dec;
-static uint8_t arena[1 << 20];
-static uint8_t psbt[1 << 18];
+/* Heap, not static: these suites also run in the QEMU self-test image,
+   which has no PSRAM (about 60 KB in one block there). The host uses the
+   same 48 KB, so the decoder's capacity, and its results, cannot differ by
+   platform; the vectors never need more mixed parts than it holds. */
+#define ARENA_SIZE (48 * 1024)
+#define PSBT_MAX (16 * 1024)
+static qr_decoder_t *dec_p;
+#define dec (*dec_p)
+static uint8_t *arena;
+static uint8_t *psbt;
 
 static void rand_fill(void *p, unsigned n)
 {
@@ -37,12 +44,19 @@ static bool deferred(qr_type_t t)
            t == QR_TYPE_WALLET_CONFIGFILE;
 }
 
-static void hex(const uint8_t *b, size_t n, char *out)
+/* `b` is the bytes `h` spells in hex. */
+static bool hex_is(const uint8_t *b, size_t n, const char *h)
 {
-    for (size_t i = 0; i < n; i++) {
-        sprintf(out + 2 * i, "%02x", b[i]);
+    static const char D[] = "0123456789abcdef";
+    if (strlen(h) != 2 * n) {
+        return false;
     }
-    out[2 * n] = '\0';
+    for (size_t i = 0; i < n; i++) {
+        if (h[2 * i] != D[b[i] >> 4] || h[2 * i + 1] != D[b[i] & 15]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 static int preview(const char *data, unsigned len, char *out, size_t cap)
@@ -78,6 +92,9 @@ static void test_detect(void)
 static bool hex_parses(const char *h)
 {
     size_t n = strlen(h) / 2;
+    if (n > PSBT_MAX) {
+        return false;
+    }
     for (size_t i = 0; i < n; i++) {
         unsigned v;
         sscanf(h + 2 * i, "%2x", &v);
@@ -95,7 +112,7 @@ static void test_scans(void)
 {
     printf("== scans, frame by frame\n");
     unsigned frames = 0, scans = 0, skipped = 0, psbts = 0, seeds = 0, addrs = 0, refused_early = 0;
-    static char got[1 << 19];
+    static char got[256];
 
     for (size_t i = 0; i < N(QR_SCANS); i++) {
         const qrv_scan_t *s = &QR_SCANS[i];
@@ -136,7 +153,9 @@ static void test_scans(void)
 
         if (qr_is_psbt((qr_type_t)s->type)) {
             size_t n = 0;
-            const bool have = qr_decoder_psbt(&dec, psbt, sizeof psbt, &n);
+            /* The bound the screens size their buffer by must suffice. */
+            const size_t bound = qr_decoder_psbt_max(&dec);
+            const bool have = qr_decoder_psbt(&dec, psbt, bound < PSBT_MAX ? bound : PSBT_MAX, &n);
             if (s->psbt == NULL || s->psbt[0] == '!') {
                 CHECK(!have, "%s: gave a PSBT where SeedSigner gives %s", s->name,
                       s->psbt ? s->psbt : "None");
@@ -148,8 +167,7 @@ static void test_scans(void)
             } else {
                 CHECK(have, "%s: no PSBT", s->name);
                 if (have) {
-                    hex(psbt, n, got);
-                    CHECK(strcmp(got, s->psbt) == 0, "%s: PSBT bytes differ", s->name);
+                    CHECK(hex_is(psbt, n, s->psbt), "%s: PSBT bytes differ", s->name);
                     psbts++;
                 }
             }
@@ -193,10 +211,7 @@ static void test_scans(void)
         if (s->ur_cbor != NULL) {
             size_t n = 0;
             const uint8_t *c = qr_decoder_ur_cbor(&dec, &n);
-            if (c) {
-                hex(c, n, got);
-            }
-            CHECK(c && strcmp(got, s->ur_cbor) == 0, "%s: UR CBOR differs", s->name);
+            CHECK(c && hex_is(c, n, s->ur_cbor), "%s: UR CBOR differs", s->name);
         }
     }
     printf("   %u scans, %u frames: every status, type and result as SeedSigner's\n", scans, frames);
@@ -230,13 +245,34 @@ static void test_differences(void)
     CHECK(qr_decoder_add(&dec, NULL, 0) == QR_STATUS_FALSE, "NULL is FALSE");
 
     /* A frame longer than any QR code can hold is not a PSBT or anything. */
-    static uint8_t big[8000];
-    memset(big, 'A', sizeof big);
-    CHECK(qr_detect(big, sizeof big) == QR_TYPE_INVALID, "an oversized frame was detected");
+    uint8_t *big = malloc(8000);
+    if (big) {
+        memset(big, 'A', 8000);
+        CHECK(qr_detect(big, 8000) == QR_TYPE_INVALID, "an oversized frame was detected");
+        free(big);
+    }
+
+    /* A seed never reaches the arena, which may be PSRAM (secmem.h): only
+       the decoder, in internal RAM, holds its words. */
+    static const uint8_t compact[16] = { 0x5b, 0xbd, 0x9d, 0x71, 0xa8, 0xec, 0x79, 0x90,
+                                         0x83, 0x1a, 0xff, 0x35, 0x9d, 0x42, 0x65, 0x45 };
+    const char *seedqrs[] = { m, "073318950739065415961602009907670428187212261116",
+                              "aban aban aban aban aban aban aban aban aban aban aban abou" };
+    for (int k = 0; k < 4; k++) {
+        qr_decoder_reset(&dec);
+        const qr_status_t st = k < 3 ? qr_decoder_add(&dec, (const uint8_t *)seedqrs[k], strlen(seedqrs[k]))
+                                     : qr_decoder_add(&dec, compact, sizeof compact);
+        CHECK(st == QR_STATUS_COMPLETE, "seed %d did not decode", k);
+        bool untouched = true;
+        for (size_t i = 0; i < ARENA_SIZE; i++) {
+            untouched = untouched && arena[i] == 0;
+        }
+        CHECK(untouched, "seed %d was copied into the arena", k);
+    }
 
     /* Reset wipes the arena. */
     qr_decoder_reset(&dec);
-    qr_decoder_add(&dec, (const uint8_t *)m, strlen(m));
+    qr_decoder_add(&dec, (const uint8_t *)"settings::v1 name=x", 19);
     qr_decoder_reset(&dec);
     bool clean = true;
     for (size_t i = 0; i < 256; i++) {
@@ -248,9 +284,19 @@ static void test_differences(void)
 int main(void)
 {
     btc_init(rand_fill);
-    qr_decoder_init(&dec, arena, sizeof arena);
+    dec_p = test_alloc(sizeof *dec_p);
+    arena = test_alloc(ARENA_SIZE);
+    psbt = test_alloc(PSBT_MAX);
+    CHECK(dec_p && arena && psbt, "out of memory");
+    if (!dec_p || !arena || !psbt) {
+        test_free_all();
+        return CHECK_DONE("test_qr_decode");
+    }
+    qr_decoder_init(&dec, arena, ARENA_SIZE);
     test_detect();
     test_scans();
     test_differences();
+    qr_decoder_reset(&dec);
+    test_free_all();
     return CHECK_DONE("test_qr_decode");
 }

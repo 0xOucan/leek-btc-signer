@@ -22,7 +22,10 @@
 
 #include "check.h"
 
-static UrFountainScratch scratch;
+/* On the heap, not static: the suite also runs in the QEMU self-test
+   image, whose internal RAM cannot hold every suite's buffers at once. */
+static UrFountainScratch *scratch_p;
+#define scratch (*scratch_p)
 
 /* seq_num, seq_len, checksum, the fragments, how many. */
 static const struct {
@@ -89,7 +92,7 @@ static void test_reference_vectors(void)
                                               VECTORS[i].checksum,
                                               mask, &scratch);
         CHECK(ok, "part %u of %u was refused",
-              VECTORS[i].seq_num, VECTORS[i].seq_len);
+              (unsigned)VECTORS[i].seq_num, (unsigned)VECTORS[i].seq_len);
         if (!ok) {
             continue;
         }
@@ -103,11 +106,12 @@ static void test_reference_vectors(void)
 
         CHECK(memcmp(mask, want, sizeof want) == 0,
               "part %u of %u (crc %u) chose the wrong fragments",
-              VECTORS[i].seq_num, VECTORS[i].seq_len, VECTORS[i].checksum);
+              (unsigned)VECTORS[i].seq_num, (unsigned)VECTORS[i].seq_len,
+              (unsigned)VECTORS[i].checksum);
         CHECK(ur_mask_count(mask, VECTORS[i].seq_len) == VECTORS[i].count,
               "part %u of %u: degree %u, want %u",
-              VECTORS[i].seq_num, VECTORS[i].seq_len,
-              ur_mask_count(mask, VECTORS[i].seq_len), VECTORS[i].count);
+              (unsigned)VECTORS[i].seq_num, (unsigned)VECTORS[i].seq_len,
+              (unsigned)ur_mask_count(mask, VECTORS[i].seq_len), (unsigned)VECTORS[i].count);
     }
 }
 
@@ -122,12 +126,13 @@ static void test_pure_parts_are_in_order(void)
         for (uint32_t n = 1; n <= seq_len; n++) {
             uint8_t mask[UR_PART_MASK_BYTES];
             CHECK(ur_fountain_fragments(n, seq_len, 0xDEADBEEF, mask, &scratch),
-                  "part %u of %u refused", n, seq_len);
+                  "part %u of %u refused", (unsigned)n, (unsigned)seq_len);
             CHECK(ur_mask_count(mask, seq_len) == 1,
-                  "part %u of %u is not a single fragment", n, seq_len);
+                  "part %u of %u is not a single fragment", (unsigned)n, (unsigned)seq_len);
             const uint32_t idx = n - 1;
             CHECK((mask[idx / 8] & (1u << (idx % 8))) != 0,
-                  "part %u of %u is not fragment %u", n, seq_len, idx);
+                  "part %u of %u is not fragment %u", (unsigned)n, (unsigned)seq_len,
+                  (unsigned)idx);
         }
     }
 }
@@ -144,12 +149,12 @@ static void test_degree_is_in_range(void)
             uint8_t mask[UR_PART_MASK_BYTES];
             if (!ur_fountain_fragments(n, seq_len, 0x01020304u, mask,
                                        &scratch)) {
-                CHECK(false, "part %u of %u refused", n, seq_len);
+                CHECK(false, "part %u of %u refused", (unsigned)n, (unsigned)seq_len);
                 continue;
             }
             const uint32_t d = ur_mask_count(mask, seq_len);
             CHECK(d >= 1 && d <= seq_len,
-                  "part %u of %u has degree %u", n, seq_len, d);
+                  "part %u of %u has degree %u", (unsigned)n, (unsigned)seq_len, (unsigned)d);
         }
     }
 }
@@ -175,10 +180,16 @@ static void test_bounds(void)
 
 int main(void)
 {
+    scratch_p = test_alloc(sizeof *scratch_p);
+    if (scratch_p == NULL) {
+        CHECK(0, "out of memory");
+        return CHECK_DONE("test_ur_fountain");
+    }
     test_reference_vectors();
     test_pure_parts_are_in_order();
     test_degree_is_in_range();
     test_bounds();
 
+    test_free_all();
     return CHECK_DONE("test_ur_fountain");
 }
