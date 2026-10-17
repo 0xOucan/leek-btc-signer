@@ -30,6 +30,10 @@ struct screen {
        UI_TICK_MS: for work that does not come from a key, such as decoding
        scanned frames. True = redraw. */
     bool (*tick)(const screen_t *s);
+    /* Called when the screen is back on top after the ones above it were
+       popped (BACK, HOLD, going home): SeedSigner runs a View again on the
+       way back, and MainMenuView then drops the flow in progress. */
+    void (*resume)(const screen_t *s);
     void *ctx;
 };
 
@@ -44,6 +48,9 @@ void ui_home(void);
 /* Home as a new visit: the root screen entered again (a menu back at its
    first item), as SeedSigner's Destination(MainMenuView) is a new view. */
 void ui_home_fresh(void);
+/* SeedSigner's clear_history: everything above the root dropped, the root
+   entered again, but not resumed (the flow in progress goes on above it). */
+void ui_clear_history(void);
 void ui_input(input_ev_t ev);
 /* Draw the top screen into the framebuffer. */
 void ui_render(void);

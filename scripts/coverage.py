@@ -69,6 +69,27 @@ DONE = {
     "SeedExportXpubWarningView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
     "SeedExportXpubDetailsView": "BIP-84 zpub on the firmware: qemu-flow seed-lifecycle; test_seed_flows.c",
     "SeedExportXpubQRDisplayView": "parts identical to SeedSigner's (test_qr_encode.c); qemu-flow seed-lifecycle",
+    # PSBT signing: SeedSigner's tests/test_flows_psbt.py, ported in
+    # sim/test_psbt_flows.c, plus every PSBT of its parser tests walked
+    # through the screens to the signed QR ("the sweep")
+    "PSBTSelectSeedView": "every flow test, \"(?)\" hint, autoroute: test_psbt_flows.c; qemu-flow psbt-sign",
+    "PSBTOverviewView": "test_psbt_flows.c (the sweep checks spend, change, fee per PSBT); qemu-flow psbt-sign",
+    "PSBTUnsupportedScriptTypeWarningView": "an unrecognised input script: test_psbt_flows.c (SeedSigner's own check never fires)",
+    "PSBTNoChangeWarningView": "the sweep, 65 PSBTs: test_psbt_flows.c",
+    "PSBTHighFeeWarningView": "the sweep, 21 PSBTs: test_psbt_flows.c",
+    "PSBTMathView": "the sweep; BACK skips the warnings: test_psbt_flows.c; qemu-flow psbt-sign",
+    "PSBTAddressDetailsView": "every recipient's address and amount, the sweep: test_psbt_flows.c; qemu-flow psbt-sign",
+    "PSBTChangeDetailsView": "every change output and path, the sweep; multisig skips verification until descriptors (T47): test_psbt_flows.c",
+    "PSBTSeedCannotSignView": "test_wrong_seed_routes_back_to_seed_selection_flow: test_psbt_flows.c",
+    "PSBTOutputOwnershipClaimFailedView": "test_forged_output_claim_terminates_signing_flow: test_psbt_flows.c",
+    "PSBTInputOwnershipClaimFailedView": "test_forged_input_claim_terminates_signing_flow: test_psbt_flows.c",
+    "PSBTSurplusDerivationPathsView": "test_surplus_derivation_paths_terminate_signing_flow: test_psbt_flows.c",
+    "PSBTMixedDerivationPathTypesView": "test_mixed_derivation_path_types_terminate_signing_flow: test_psbt_flows.c",
+    "PSBTOutputOwnershipContradictionView": "test_output_ownership_contradiction_terminates_signing_flow: test_psbt_flows.c",
+    "PSBTOpReturnView": "test_parse_and_display_op_return_content: test_psbt_flows.c",
+    "PSBTFinalizeView": "signs to SeedSigner's exact PSBT, 155 PSBTs: test_psbt_flows.c; qemu-flow psbt-sign",
+    "PSBTSignedQRDisplayView": "test_psbt_flows.c; qemu-flow psbt-sign",
+    "PSBTSigningErrorView": "test_scan_multisig_psbt_seed_already_signed_flow: test_psbt_flows.c",
 }
 
 

@@ -85,7 +85,8 @@ static void test_recorded_scans(void)
         }
         if (is_psbt) {
             const bool readable = strcmp(s->name, "bbqr_truncated_zlib") != 0;
-            CHECK(strcmp(ui_top()->name, readable ? "NotYetImplementedView" : "ErrorView") == 0,
+            /* A PSBT goes on to choose its signer, as from SeedSigner's ScanView. */
+            CHECK(strcmp(ui_top()->name, readable ? "PSBTSelectSeedView" : "ErrorView") == 0,
                   "%s: on %s", s->name, ui_top()->name);
             const size_t n = strlen(s->psbt) / 2;
             for (size_t k = 0; k < n; k++) {

@@ -20,6 +20,7 @@ typedef struct {
     int len[VIEW_LINES_MAX];
     int n_lines;
     int sel, top, body_top;
+    bool paged;         /* a list whose text does not fit: it pages, as a status body */
     screen_t screen;
 } slot_t;
 
@@ -129,7 +130,7 @@ static void render(const screen_t *s)
     ui_draw_title(v->title);
     int y = THEME.top_h + THEME.pad;
 
-    if (!v->spec.status) {
+    if (!v->spec.status && !v->paged) {
         for (int i = 0; i < v->n_lines; i++) {
             draw_line(THEME.pad, y, v->lines[i], v->len[i], C_MUTED);
             y += THEME.line_h;
@@ -142,8 +143,8 @@ static void render(const screen_t *s)
     }
 
     const gfx_color_t c = kind_color(v->spec.kind);
-    const bool edged = v->spec.kind == NOTICE_WARNING || v->spec.kind == NOTICE_DIRE ||
-                       v->spec.kind == NOTICE_ERROR;
+    const bool edged = v->spec.status && (v->spec.kind == NOTICE_WARNING || v->spec.kind == NOTICE_DIRE ||
+                       v->spec.kind == NOTICE_ERROR);
     if (edged) {
         const int w = v->spec.kind == NOTICE_WARNING ? 1 : 2;
         for (int i = 0; i < w; i++) {
@@ -183,7 +184,7 @@ static bool input(const screen_t *s, input_ev_t ev)
     slot_t *v = of(s);
     if (ev == IN_DOWN) {
         /* A status body that runs past the screen pages first. */
-        if (v->spec.status && v->sel == 0 && v->top + body_rows(v) < v->n_lines) {
+        if ((v->spec.status || v->paged) && v->sel == 0 && v->top + body_rows(v) < v->n_lines) {
             v->top++;
         } else if (v->sel + 1 < v->spec.n_buttons) {
             v->sel++;
@@ -193,7 +194,7 @@ static bool input(const screen_t *s, input_ev_t ev)
     if (ev == IN_UP) {
         if (v->sel > 0) {
             v->sel--;
-        } else if (v->spec.status && v->top > 0) {
+        } else if ((v->spec.status || v->paged) && v->top > 0) {
             v->top--;
         }
         return true;
@@ -251,6 +252,11 @@ static const screen_t *fill(const view_spec_t *spec)
     }
     const int avail = GFX_W - 2 * THEME.pad - (spec->status ? 4 : 0);
     v->n_lines = wrap(v->text, avail, v->lines, v->len, VIEW_LINES_MAX);
+    if (!spec->status && v->n_lines > 0) {
+        const int y0 = THEME.top_h + THEME.pad;
+        v->paged = y0 + v->n_lines * THEME.line_h + v->spec.n_buttons * THEME.row_h > GFX_H;
+        v->body_top = y0;
+    }
     v->screen = (screen_t){ .name = v->name, .render = render, .input = input, .leave = leave, .ctx = v };
     return &v->screen;
 }
@@ -270,10 +276,8 @@ bool view_replace(const view_spec_t *spec)
     if (s == NULL) {
         return false;
     }
-    if (ui_depth() > 1) {
-        ui_pop();
-    }
-    return ui_push(s);
+    ui_replace(s);
+    return ui_top() == s;
 }
 
 bool view_push_fresh(const view_spec_t *spec)
@@ -282,7 +286,7 @@ bool view_push_fresh(const view_spec_t *spec)
     if (s == NULL) {
         return false;
     }
-    ui_home_fresh();
+    ui_clear_history();
     return ui_push(s);
 }
 
@@ -299,7 +303,7 @@ int view_arg(void)
 
 void view_clear_history(void)
 {
-    ui_home_fresh();
+    ui_clear_history();
 }
 
 const char *ui_selected_label(void)

@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include "btc.h"
 
+#ifndef VEC_PSBT_TYPES
+#define VEC_PSBT_TYPES
 typedef struct { uint32_t output_index; const char *address; uint64_t amount; const char *path; } vec_psbt_change_t;
 typedef struct { const char *address; uint64_t amount; } vec_psbt_dest_t;
 typedef struct {
@@ -28,6 +30,7 @@ typedef struct {
     const char *signed_psbt;        /* SeedSigner's trimmed signed PSBT */
     int sigs_added;
 } vec_psbt_t;
+#endif
 
 static const vec_psbt_change_t VEC_PSBT_CHANGE_0[] = {
     { 1, "bcrt1q4nqngpcfaxmm40hljgvqduzhp3jjh5zccp8e6c", 71129364ULL, "84h/1h/0h/1/0" },

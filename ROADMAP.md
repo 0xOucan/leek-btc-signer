@@ -246,6 +246,7 @@ on the host and in QEMU.
 | T32 | Open, needs the board | Viewfinder |
 | Open | Investigating | `test_qr_view` passes on the host on all five profiles, at the device's 2x read scale and with quirc in single precision as the firmware builds it, but in the QEMU self-test quirc misses the static SeedQR, CompactSeedQR and xpub codes (the animated PSBT frames read). Out of the self-test list until understood; the encoder itself is checked module for module against python-qrcode |
 | T33 | Done | `secmem.c`: secrets come from internal RAM only (ESP: `MALLOC_CAP_INTERNAL`, never PSRAM) and are wiped on free. A scanned seed never enters the decoder's arena, which may be PSRAM; `test_qr_decode` proves the arena untouched for every seed format, `test_scan` proves the Scan screen's decoder and seed came from `sec_alloc` and went back |
+| T39 | Done, single-sig and multisig without a descriptor | `views-psbt.c`: 18 of SeedSigner's 19 PSBT views. `test_psbt_flows` ports `test_flows_psbt.py` and walks all 207 parser-test PSBTs through the screens on five profiles; 155 sign to SeedSigner's PSBT. `qemu-flow.py psbt-sign` signs on the Xtensa image. Verifying multisig change against a descriptor waits for T47 |
 | Found by QEMU | Fixed | The Scan screen sized its PSBT buffer to its whole arena, which a board short of RAM could not give; it is now bounded by the scan (`qr_decoder_psbt_max`), checked against every recorded PSBT |
 
 ### 2026-10-17: Phase 4 begins, measured in SeedSigner views
@@ -272,3 +273,38 @@ xpub QR encoder sat in internal RAM for the life of the device (now allocated
 only while shown); and a large zlib BBQr asked for more than a board without
 PSRAM has (now the largest buffer available). The QEMU self-test runs 14
 suites, all passing; `qemu-flow.py seed-lifecycle` passes in 18 steps.
+
+### 2026-10-17: PSBT signing on screen
+
+18 of SeedSigner's 19 PSBT views (`views-psbt.c`): choose the signing seed
+(with SeedSigner's "(?)" hint, or a seed loaded mid-flow by scan or typing,
+which resumes the review), the overview, the unsupported-script, high-fee and
+full-spend warnings, the transaction math, each recipient, each change output
+with its path, OP_RETURN, approval, the signed PSBT as an animated UR, the
+signing error, the wrong-seed screen, and the five refusals of a PSBT whose
+account of itself does not hold up. Going home drops the PSBT, as
+MainMenuView does. `sim/test_psbt_flows.c` ports SeedSigner's
+`tests/test_flows_psbt.py` step for step (`gen_psbt_vectors.py --tests
+tests/test_flows_psbt.py` records its PSBTs) and walks every PSBT of its
+parser tests through the screens, on all five display profiles: 1741 steps,
+each the View SeedSigner routes to, showing what SeedSigner's parser found,
+and 155 approvals signing to SeedSigner's PSBT. `qemu-flow.py psbt-sign` scans
+a PSBT and its seed and signs it on the Xtensa image. 47 of 109 views.
+
+Two differences, recorded in the code: SeedSigner's unsupported-script
+warning never fires (its parser always sets a policy once there is an input),
+so here it fires on an unrecognised input script, as SeedSigner's comment
+intends; and a PSBT with no outputs is refused (already recorded under T19).
+PSBTAddressVerificationFailedView waits for wallet descriptors (T47). List
+views whose text does not fit the screen now page it with DOWN, so a long
+address never pushes the button off a small panel.
+
+**Found by the self-test, fixed (2026-10-17).** `test_qr_encode` failed on
+the Xtensa image ("did not read back") whenever less internal RAM was free
+when it ran: it passed alone with 272 KB free, failed with the largest block
+held to 147 KB, and had already failed once at 186 KB. The test resized
+quirc's canvas for every code, about 90 KB of reallocation each time, and
+without PSRAM that sometimes could not be had; decoding was never reached.
+It now sizes one canvas at the start and says "out of memory" if it ever
+cannot, and passes on Xtensa at the 147 KB limit. The open `test_qr_view`
+failure in QEMU may have the same cause; that is the next thing to check.

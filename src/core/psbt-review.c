@@ -948,6 +948,54 @@ void psbt_review_free(psbt_review_t *r)
     memset(r, 0, sizeof *r);
 }
 
+/* ---- has_matching_input_fingerprint ----------------------------------- */
+
+static bool map_names_seed(const struct ext_key *root, const uint8_t fp[4],
+                           const struct wally_map *m)
+{
+    static const uint8_t zero[4] = { 0 };
+    for (size_t i = 0; i < m->num_items; i++) {
+        const struct wally_map_item *it = &m->items[i];
+        keypath_t kp;
+        if (!parse_keypath(it->value, it->value_len, &kp)) {
+            continue;
+        }
+        if (memcmp(kp.fp, fp, 4) == 0) {
+            return true;
+        }
+        /* The missing-fingerprint fallback: an all-zero fingerprint counts
+           only where the seed really derives the key. */
+        if (memcmp(kp.fp, zero, 4) == 0 && seed_owns(root, &kp, it->key, it->key_len)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool psbt_has_matching_input_fingerprint(const uint8_t *bytes, size_t len, const seed_t *seed,
+                                         btc_net_t net)
+{
+    struct wally_psbt *p = NULL;
+    struct ext_key root;
+    uint8_t fp[4];
+    bool match = false;
+    if (wally_psbt_from_bytes(bytes, len, 0, &p) != WALLY_OK) {
+        return false;
+    }
+    if (bip32_key_from_seed(seed->bytes, sizeof seed->bytes,
+                            net == BTC_NET_MAIN ? BIP32_VER_MAIN_PRIVATE : BIP32_VER_TEST_PRIVATE,
+                            0, &root) == WALLY_OK &&
+        bip32_key_get_fingerprint(&root, fp, sizeof fp) == WALLY_OK) {
+        for (size_t i = 0; i < p->num_inputs && !match; i++) {
+            match = map_names_seed(&root, fp, &p->inputs[i].keypaths) ||
+                    map_names_seed(&root, fp, &p->inputs[i].taproot_leaf_paths);
+        }
+    }
+    wally_bzero(&root, sizeof root);
+    wally_psbt_free(p);
+    return match;
+}
+
 /* ---- Signing: sign_with, then trim ------------------------------------ */
 
 /* PSBTParser.sig_count: a final witness counts once (taproot), otherwise

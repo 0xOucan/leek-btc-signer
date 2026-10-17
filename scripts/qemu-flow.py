@@ -28,6 +28,16 @@ def recorded(name):
     return ("RECORDED", frames, "psbt %d %s" % (len(psbt) // 2, digest))
 
 
+def flow_psbt(test):
+    """The PSBT one of SeedSigner's PSBT flow tests scans, as base64 text,
+    from sim/vectors/seedsigner_psbt_flows.h."""
+    import re
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sim", "vectors",
+                        "seedsigner_psbt_flows.h")
+    m = re.search(r'"TestPSBTFlows::%s", "([^"]+)"' % test, open(path).read())
+    return m.group(1)
+
+
 # (actions, screen expected after them[, note expected]). An action is a key
 # name, a QR frame (bytes or str), or recorded(...).
 FLOWS = {
@@ -64,12 +74,12 @@ FLOWS = {
     ],
     "scan-animated-ur-psbt": [
         (["OK"], "ScanView"),
-        ([recorded("ur_psbt_3_medium_lossy")], "NotYetImplementedView"),
+        ([recorded("ur_psbt_3_medium_lossy")], "PSBTSelectSeedView"),
         (["HOLD"], "MainMenuView"),
     ],
     "scan-bbqr-zlib": [
         (["OK"], "ScanView"),
-        ([recorded("bbqr_5_Z_shuffled")], "NotYetImplementedView"),
+        ([recorded("bbqr_5_Z_shuffled")], "PSBTSelectSeedView"),
     ],
     # SeedSigner's test_scan_seedqr_flow, test_export_xpub_standard_flow and
     # test_discard_seed_flow, on one device: abandon x11 about, whose BIP-84
@@ -94,6 +104,22 @@ FLOWS = {
         (["DOWN", "DOWN", "DOWN", "DOWN", "OK"], "SeedDiscardView"),
         (["DOWN", "OK"], "MainMenuView", "discarded"),
         (["DOWN", "OK"], "LoadSeedView"),
+    ],
+    # SeedSigner's test_scan_psbt_first_then_correct_seedqr_flow: scan the
+    # PSBT, then the seed that signs it, review every output and sign.
+    "psbt-sign": [
+        (["OK"], "ScanView"),
+        ([flow_psbt("test_scan_psbt_first_then_correct_seedqr_flow")], "PSBTSelectSeedView"),
+        (["OK"], "ScanSeedQRView"),
+        (["080115060387063104071857067618681125136207731354"], "SeedFinalizeView",
+         "fingerprint 394aed14"),
+        (["OK"], "PSBTOverviewView", ("prefix", "overview 123456 ")),
+        (["OK"], "PSBTMathView"),
+        (["OK"], "PSBTAddressDetailsView"),
+        (["OK"], "PSBTChangeDetailsView"),
+        (["OK", "OK", "OK"], "PSBTFinalizeView"),
+        (["OK"], "PSBTSignedQRDisplayView", ("prefix", "sign OK 2")),
+        (["OK"], "MainMenuView"),
     ],
     "scan-invalid": [
         (["OK"], "ScanView"),

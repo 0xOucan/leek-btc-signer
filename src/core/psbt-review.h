@@ -119,6 +119,12 @@ uint64_t psbt_total_sent(uint64_t total_out, const psbt_change_t *change, size_t
 /* has_high_fee(): fee above 25% of what is sent; never when nothing is. */
 bool psbt_fee_is_high(int64_t fee, uint64_t sent);
 
+/* has_matching_input_fingerprint(): a routing hint for choosing a seed,
+ * which verifies nothing. True if any input names this seed's fingerprint,
+ * or an all-zero one on a key the seed derives. */
+bool psbt_has_matching_input_fingerprint(const uint8_t *bytes, size_t len, const seed_t *seed,
+                                         btc_net_t net);
+
 /* Sign the reviewed PSBT as SeedSigner does, and return the trimmed result
  * (the unsigned transaction plus only our signatures) as base64 in
  * `*b64_out`, to be freed with wally_free_string(). `*sigs_added` is how

@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #include "theme.h"
+#include "views-psbt.h"
 #include "views-seed.h"
 
 /* ---- Not built yet ---------------------------------------------------- */
@@ -143,4 +144,15 @@ static const menu_item_t home_items[] = {
     { "Settings", &SETTINGS, NULL },
 };
 static menu_t home_menu = { "Home", home_items, 4, 0, 0 };
-const screen_t SCREEN_HOME = SCREEN_MENU("MainMenuView", home_menu);
+
+/* Back at MainMenuView, SeedSigner drops the flow in progress. */
+static void home_resume(const screen_t *s)
+{
+    (void)s;
+    psbt_flow_clear();
+}
+
+const screen_t SCREEN_HOME = {
+    .name = "MainMenuView", .enter = menu_enter, .render = menu_render, .input = menu_input,
+    .resume = home_resume, .ctx = (void *)&home_menu,
+};

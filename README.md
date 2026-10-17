@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  █████░░░░░░░░░░░░░░░  29 of 109 views (27%)
+SeedSigner  █████████░░░░░░░░░░░  47 of 109 views (43%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
@@ -72,12 +72,12 @@ are screens on top of it.
 | Seeds from words, dice, coin flips | ✅ | 🟡 typing 12 or 24 words done; dice and coin flips next |
 | BIP-39 passphrase | ✅ | ✅ add, review, edit, discard, as SeedSigner's flow |
 | xpub export: static, Specter, animated UR | ✅ | ✅ the whole flow, all 21 of SeedSigner's combinations |
-| PSBT scan: UR, BBQr, Specter, base64, base43 | ✅ | 🟡 Scan screen works end to end in QEMU, matching SeedSigner frame by frame; camera needs the board |
-| PSBT review and the anti-forgery checks | ✅ | ✅ matches, plus three stricter refusals (below); amounts display as SeedSigner's |
+| PSBT scan: UR, BBQr, Specter, base64, base43 | ✅ | 🟡 scan to seed selection works end to end in QEMU, matching SeedSigner frame by frame; camera needs the board |
+| PSBT review and the anti-forgery checks | ✅ | ✅ the whole flow on screen: seed choice, overview, warnings, math, each recipient and change output, OP_RETURN, every refusal; plus three stricter refusals (below) |
 | PSBT signing: segwit, nested, legacy, taproot | ✅ | ✅ byte-identical signed PSBTs (taproot verified) |
-| Animated UR output of the signed PSBT | ✅ | 🟡 parts identical to SeedSigner's; screen next |
+| Animated UR output of the signed PSBT | ✅ | ✅ shown after approval; parts identical to SeedSigner's |
 | Address verification | ✅ | 🟡 logic done; address display identical to SeedSigner's; flow next |
-| Multisig: descriptors, cosigner checks | ✅ | 🟡 PSBT checks done; descriptor import in Phase 6 |
+| Multisig: descriptors, cosigner checks | ✅ | 🟡 multisig PSBTs reviewed and signed; change verification against a descriptor in Phase 6 |
 | BIP-85 child seeds | ✅ | 🟡 logic done; screens in Phase 6 |
 | Message signing | ✅ | 🟡 request decoding done; signing in Phase 6 |
 | SettingsQR | ✅ | 🟡 decoding done; settings screens next |

@@ -20,6 +20,7 @@
 #include "settings.h"
 #include "text-entry.h"
 #include "theme.h"
+#include "views-psbt.h"
 #include "views.h"
 #include "wally_core.h"
 
@@ -60,7 +61,10 @@ static void seed_options_select(int i)
 {
     const int seed = view_arg();
     switch (options_map[i]) {
-    case OPT_SCAN_PSBT:     ui_push(&SCREEN_SCAN_PSBT); break;
+    case OPT_SCAN_PSBT:
+        psbt_flow_set_seed(seed);
+        ui_push(&SCREEN_SCAN_PSBT);
+        break;
     case OPT_EXPORT_XPUB:   SeedExportXpubSigTypeView(seed); break;
     case OPT_EXPLORER:      not_yet("ToolsAddressExplorerAddressTypeView"); break;
     case OPT_BACKUP:        SeedBackupView(seed); break;
@@ -94,10 +98,13 @@ static void seed_options(int seed, bool fresh)
     v.buttons[n] = "Discard seed";     options_map[n++] = OPT_DISCARD;
     v.n_buttons = n;
     if (fresh) {
-        view_push_fresh(&v);    /* clear_history=True */
-    } else {
-        view_push(&v);
+        view_clear_history();   /* clear_history=True */
     }
+    /* A seed loaded for a PSBT goes back to it (resume_main_flow). */
+    if (psbt_flow_resume(seed)) {
+        return;
+    }
+    view_push(&v);
 }
 
 void SeedOptionsView(int seed)

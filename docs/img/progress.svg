@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="860" height="342" viewBox="0 0 860 342" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <style>.t{fill:#57606a;font-size:13px}.h{fill:#24292f;font-size:16px;font-weight:600}.n{fill:#57606a;font-size:12px}.track{fill:#d0d7de}.done{fill:#f7931a}@media (prefers-color-scheme:dark){.t,.n{fill:#9198a1}.h{fill:#e6edf3}.track{fill:#30363d}}</style>
-<text class="h" x="10" y="24">SeedSigner on Leek BTC Signer: 29 of 109 views (27%)</text>
+<text class="h" x="10" y="24">SeedSigner on Leek BTC Signer: 47 of 109 views (43%)</text>
 <rect class="track" x="10" y="36" width="840" height="14" rx="7"/>
-<rect class="done" x="10" y="36" width="223.5" height="14" rx="7"/>
+<rect class="done" x="10" y="36" width="362.2" height="14" rx="7"/>
 <text class="t" x="10" y="84">System</text>
 <rect class="track" x="250" y="73" width="380" height="12" rx="6"/>
 <rect class="done" x="250" y="73" width="126.7" height="12" rx="6"/>
@@ -17,7 +17,8 @@
 <text class="n" x="640" y="152">19 of 48 views</text>
 <text class="t" x="10" y="186">PSBT signing</text>
 <rect class="track" x="250" y="175" width="380" height="12" rx="6"/>
-<text class="n" x="640" y="186">0 of 19 views</text>
+<rect class="done" x="250" y="175" width="360.0" height="12" rx="6"/>
+<text class="n" x="640" y="186">18 of 19 views</text>
 <text class="t" x="10" y="220">Tools</text>
 <rect class="track" x="250" y="209" width="380" height="12" rx="6"/>
 <rect class="done" x="250" y="209" width="25.3" height="12" rx="6"/>

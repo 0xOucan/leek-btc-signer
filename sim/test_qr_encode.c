@@ -40,6 +40,14 @@ static qr_encoder_t *enc_p;
 #define dec (*dec_p)
 #define enc (*enc_p)
 static struct quirc *qr;
+/* quirc's canvas, sized once at the start for the largest code read back
+   here (version 13 at two pixels a module, with its quiet zone) and drawn
+   into from the top-left. Resizing per code reallocated about 90 KB each
+   time, which the self-test image, holding every suite's state in internal
+   RAM without PSRAM, could not always get: read-backs then failed on
+   memory, not on decoding. */
+#define CANVAS ((17 + 4 * 13 + 8) * 2)
+static int canvas = CANVAS;
 
 static void rand_fill(void *p, unsigned n)
 {
@@ -82,8 +90,12 @@ static bool round_trip(const uint8_t *data, size_t len, int scale)
     }
     versions_seen[v]++;
     const int side = (code.size + 8) * scale;
-    if (quirc_resize(qr, side, side) < 0) {
-        return false;
+    if (side > canvas) {
+        if (quirc_resize(qr, side, side) < 0) {
+            CHECK(0, "out of memory for a %d px QR canvas", side);
+            return false;
+        }
+        canvas = side;
     }
     int w, h;
     uint8_t *img = quirc_begin(qr, &w, &h);
@@ -329,6 +341,10 @@ int main(void)
 {
     btc_init(rand_fill);
     qr = quirc_new();
+    if (qr && quirc_resize(qr, CANVAS, CANVAS) < 0) {
+        quirc_destroy(qr);
+        qr = NULL;
+    }
     arena = test_alloc(ARENA_SIZE);
     dec_p = test_alloc(sizeof *dec_p);
     enc_p = test_alloc(sizeof *enc_p);

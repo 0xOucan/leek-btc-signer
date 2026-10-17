@@ -7,9 +7,10 @@
  * leaves on the first COMPLETE or INVALID, as SeedSigner's scan loop does. A
  * stray frame of another type, which SeedSigner would raise on, is ignored.
  *
- * Where the result goes next is Phase 4's job (load the seed, review the
- * PSBT, verify the address). Until then the result screen says what was
- * scanned, and the decoder, the frames and the seed are wiped on the way out.
+ * A seed goes on to be finalised and a PSBT to be reviewed and signed
+ * (views-seed.c, views-psbt.c). Other kinds wait for their views; until
+ * then the result screen says what was scanned. The decoder, the frames
+ * and the seed are wiped on the way out.
  * The flavours mirror ScanView, ScanPSBTView and ScanSeedQRView: the last two
  * refuse a code of the wrong kind with SeedSigner's "Wrong QR Type".
  */
@@ -27,6 +28,7 @@
 #include "secmem.h"
 #include "seed-storage.h"
 #include "settings.h"
+#include "views-psbt.h"
 #include "views-seed.h"
 #include "theme.h"
 #include "wally_core.h"
@@ -81,10 +83,12 @@ static bool kind_ok(qr_type_t t)
            (scan.kind == SCAN_SEED && qr_is_seed(t));
 }
 
-/* Route a complete scan. A seed goes on to SeedFinalizeView, as from
-   SeedSigner's ScanView; anything else gets a result screen. Returns false
-   when the seed route was taken. Nothing secret goes in a text or a note. */
-static bool describe(void)
+typedef enum { ROUTE_RESULT, ROUTE_SEED, ROUTE_DONE } route_t;
+
+/* Route a complete scan. A seed goes on to SeedFinalizeView and a PSBT to
+   PSBTSelectSeedView, as from SeedSigner's ScanView; anything else gets a
+   result screen. Nothing secret goes in a text or a note. */
+static route_t describe(void)
 {
     const qr_type_t t = scan.dec->type;
     if (!kind_ok(t)) {
@@ -92,7 +96,7 @@ static bool describe(void)
                scan.kind == SCAN_PSBT ? "transaction" : "SeedQR", qr_type_name(t));
         result_view("ErrorView");
         ui_note("wrong-type %s", qr_type_name(t));
-        return true;
+        return ROUTE_RESULT;
     }
     if (qr_is_seed(t)) {
         uint16_t words[SEED_MAX_WORDS];
@@ -115,10 +119,10 @@ static bool describe(void)
                    (unsigned)n);
             result_view("ErrorView");
             ui_note("seed-invalid %u", (unsigned)n);
-            return true;
+            return ROUTE_RESULT;
         }
         ui_note("seed %u %s", (unsigned)n, fp);
-        return false;
+        return ROUTE_SEED;
     }
     if (qr_is_psbt(t)) {
         size_t n = 0;
@@ -135,18 +139,23 @@ static bool describe(void)
         if (ok) {
             wally_sha256(p, n, h, sizeof h);
         }
-        free(p);
         if (!ok) {
+            free(p);
             result("Error", "The transaction could not be read.");
             result_view("ErrorView");
             ui_note("psbt-unreadable");
-            return true;
+            return ROUTE_RESULT;
         }
-        result("PSBT", "Transaction received\n%u bytes\n\nReview and signing arrive with T37.",
-               (unsigned)n);
-        result_view("NotYetImplementedView");
         ui_note("psbt %u %02x%02x%02x%02x", (unsigned)n, h[0], h[1], h[2], h[3]);
-        return true;
+        /* This replaces the scan screen, which wipes the decoder. */
+        const bool routed = psbt_flow_scanned(p, n);
+        free(p);
+        if (!routed) {
+            result("Error", "Not enough memory for the transaction.");
+            result_view("ErrorView");
+            return ROUTE_RESULT;
+        }
+        return ROUTE_DONE;
     }
     if (t == QR_TYPE_BITCOIN_ADDRESS) {
         btc_script_t script;
@@ -155,24 +164,24 @@ static bool describe(void)
         result("Address", "%s\n\nVerifying it arrives with T40.", a);
         result_view("NotYetImplementedView");
         ui_note("address %s %d %d", a, (int)script, (int)net);
-        return true;
+        return ROUTE_RESULT;
     }
     if (t == QR_TYPE_SETTINGS) {
         result("Settings", "SettingsQR received.\n\nApplying it arrives with T41.");
         result_view("NotYetImplementedView");
         ui_note("settings");
-        return true;
+        return ROUTE_RESULT;
     }
     if (t == QR_TYPE_SIGN_MESSAGE) {
         result("Sign message", "Request received.\n\nMessage signing arrives with T49.");
         result_view("NotYetImplementedView");
         ui_note("signmessage");
-        return true;
+        return ROUTE_RESULT;
     }
     result("Scan", "Received \"%s\".\n\nUsing it arrives with T47.", qr_type_name(t));
     result_view("NotYetImplementedView");
     ui_note("other %s", qr_type_name(t));
-    return true;
+    return ROUTE_RESULT;
 }
 
 /* ---- The scan screen ---------------------------------------------------- */
@@ -263,9 +272,10 @@ static bool scan_tick(const screen_t *s)
                 qr_decoder_percent(scan.dec, true));
         changed = true;
         if (st == QR_STATUS_COMPLETE) {
-            if (describe()) {
+            const route_t r = describe();
+            if (r == ROUTE_RESULT) {
                 ui_replace(&SCAN_RESULT);   /* leaves this screen: wipes */
-            } else {
+            } else if (r == ROUTE_SEED) {
                 ui_pop();
                 if (SETTINGS.passphrase == OPT_REQUIRED) {
                     SeedAddPassphraseView();

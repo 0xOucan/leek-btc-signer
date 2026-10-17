@@ -47,28 +47,51 @@ bool ui_push(const screen_t *s)
     return true;
 }
 
+static void pop_one(void)
+{
+    leave(stack[--depth]);
+    stack[depth] = NULL;
+}
+
+static void resumed(void)
+{
+    const screen_t *s = ui_top();
+    if (s && s->resume) {
+        s->resume(s);
+    }
+}
+
 void ui_pop(void)
 {
     if (depth <= 1) {
         return;     /* the root stays */
     }
-    leave(stack[--depth]);
-    stack[depth] = NULL;
+    pop_one();
+    resumed();
 }
 
 void ui_home(void)
 {
     while (depth > 1) {
-        ui_pop();
+        pop_one();
+    }
+    resumed();
+}
+
+void ui_clear_history(void)
+{
+    while (depth > 1) {
+        pop_one();
+    }
+    if (depth == 1) {
+        enter(stack[0]);
     }
 }
 
 void ui_home_fresh(void)
 {
-    ui_home();
-    if (depth == 1) {
-        enter(stack[0]);
-    }
+    ui_clear_history();
+    resumed();
 }
 
 void ui_set_hold_handler(void (*fn)(void))
@@ -150,7 +173,7 @@ bool ui_wants_tick(void)
 void ui_replace(const screen_t *s)
 {
     if (depth > 1) {
-        ui_pop();
+        pop_one();      /* not a way back: nothing under it resumes */
     }
     ui_push(s);
 }
