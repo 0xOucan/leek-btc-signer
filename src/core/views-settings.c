@@ -264,13 +264,9 @@ void settings_scanned(const char *text, size_t len)
     settingsqr_t q;
     const char *err = settingsqr_parse(data, &q);
     if (err) {
-        /* SeedSigner raises, to its UnhandledExceptionView. */
-        snprintf(ingest_text, sizeof ingest_text, "This SettingsQR could not be applied (%s).", err);
-        const view_spec_t v = { .name = "ErrorView", .status = true, .kind = NOTICE_ERROR,
-                                .title = "Settings QR", .text = ingest_text, .buttons = { "OK" },
-                                .n_buttons = 1, .select = ingest_select };
-        view_replace(&v);
+        /* SeedSigner's parse raises, to its crash screen; nothing applied. */
         ui_note("settingsqr %s", err);
+        UnhandledExceptionView(err, "settings.py, parse_settingsqr", "This SettingsQR could not be applied.");
         return;
     }
     settingsqr_apply(&q);

@@ -7,7 +7,9 @@
  */
 #include "btc-init.h"
 #include "flow.h"
+#include "views-power.h"
 #include "views-settings.h"
+#include "views-splash.h"
 #include "vectors/seedsigner_settings.h"
 
 #define N(a) (sizeof(a) / sizeof((a)[0]))
@@ -20,7 +22,7 @@ static void scan_text(const char *text)
 /* The labels of the menu on screen, in order. */
 static int menu_labels(const char *out[], int max)
 {
-    const menu_t *m = ui_top()->input == menu_input ? ui_top()->ctx : NULL;
+    const menu_t *m = ui_top()->render == menu_render ? ui_top()->ctx : NULL;
     int n = 0;
     for (int i = 0; m && i < m->n && n < max; i++) {
         out[n++] = m->items[i].label;
@@ -234,8 +236,64 @@ static void test_settingsqr(void)
     fresh();
     choose("Scan");
     scan_text("settings::v1 network=fake_value");
-    STEP("ErrorView");
+    STEP("UnhandledExceptionView");     /* SeedSigner raises InvalidSettingsQRData */
+    choose("Back to Main Menu");
+    STEP("MainMenuView");
     CHECK(SETTINGS.network == BTC_NET_MAIN, "a refused SettingsQR changed a setting");
+}
+
+/* view.py's PowerOptionsView, RestartView and PowerOffView. */
+static int restarts;
+static void on_restart(void) { restarts++; }
+
+static void test_power(void)
+{
+    printf("== power options: power off, restart wipes and restarts\n");
+    fresh();
+    ui_set_restart_hook(on_restart);
+    key(IN_BACK);               /* the main menu's power button */
+    STEP("PowerOptionsView");
+    choose("Power off");
+    STEP("PowerOffView");
+    choose("OK");
+    STEP("PowerOptionsView");
+    key(IN_BACK);
+    STEP("MainMenuView");
+
+    seed_t s;
+    seed_from_mnemonic(&s, "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon "
+                           "abandon about", "");
+    storage_set_pending(&s);
+    seed_clear(&s);
+    storage_finalize();
+    restarts = 0;
+    key(IN_BACK);
+    choose("Restart");
+    STEP("RestartView");
+    CHECK(restarts == 1, "%d restarts", restarts);
+    CHECK(storage_count() == 0 && storage_pending() == NULL, "the seeds outlived the restart");
+    key(IN_BACK);
+    STEP("RestartView");        /* nothing to do but wait */
+}
+
+/* screensaver.py's OpeningSplashView. */
+static void test_splash(void)
+{
+    printf("== opening splash: leaves by itself, or on any key\n");
+    fresh();
+    ui_push(&SCREEN_SPLASH);
+    ui_render();
+    STEP("OpeningSplashView");
+    now += SPLASH_MS / 2;
+    ui_tick();
+    STEP("OpeningSplashView");
+    now += SPLASH_MS;
+    ui_tick();
+    STEP("MainMenuView");
+    ui_push(&SCREEN_SPLASH);
+    key(IN_OK);
+    STEP("MainMenuView");       /* the key only ends the splash */
+    CHECK(ui_depth() == 1, "a key on the splash also chose a menu item");
 }
 
 int main(void)
@@ -250,6 +308,8 @@ int main(void)
     test_io_test();
     test_donate();
     test_settingsqr();
+    test_power();
+    test_splash();
     fresh();
     return CHECK_DONE("test_settings_flows");
 }

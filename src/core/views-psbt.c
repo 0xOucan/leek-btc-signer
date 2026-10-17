@@ -588,7 +588,21 @@ static bool parse(void)
         flow.seed = -1;
         PSBTSeedCannotSignView();
         break;
+    /* Where SeedSigner's parser raises, it shows its crash screen. */
+    case PSBT_ERR_MIXED_INPUTS:
+        UnhandledExceptionView("RuntimeError", "psbt_parser.py, _parse_inputs", "Mixed inputs in the transaction");
+        break;
+    case PSBT_ERR_UNSUPPORTED:
+        UnhandledExceptionView("RuntimeError", "psbt_parser.py, _parse_outputs", "Unsupported policy type");
+        break;
+    case PSBT_ERR_INVALID:
+        UnhandledExceptionView("ValueError", "psbt_parser.py", "Malformed multisig script");
+        break;
+    case PSBT_ERR_PARSE:
+        UnhandledExceptionView("PSBTError", "psbt.py", "The transaction could not be read");
+        break;
     default:
+        /* This port's stricter refusals (psbt-review.h), and memory. */
         psbt_error_view(err);
         break;
     }

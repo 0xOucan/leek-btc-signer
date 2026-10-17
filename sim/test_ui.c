@@ -48,7 +48,7 @@ static void walk(int depth)
     check_renders();
     visited++;
     if (depth > 6 || strstr(top(), "IOTestView")) return;
-    const menu_t *m = ui_top()->input == menu_input ? ui_top()->ctx : NULL;
+    const menu_t *m = ui_top()->render == menu_render ? ui_top()->ctx : NULL;
     if (!m) return;
     press(IN_UP, m->n);     /* a covered menu keeps its selection */
     for (int i = 0; i < m->n; i++) {
@@ -72,8 +72,11 @@ int main(void)
     ui_init(&SCREEN_HOME);
     CHECK(strcmp(top(), "MainMenuView") == 0 && ui_depth() == 1, "starts at home");
 
+    /* BACK at home is SeedSigner's power button: the power options. */
     ui_input(IN_BACK);
-    CHECK(ui_depth() == 1, "BACK at home stays home");
+    CHECK(strcmp(top(), "PowerOptionsView") == 0, "BACK at home: %s", top());
+    ui_input(IN_BACK);
+    CHECK(ui_depth() == 1, "BACK from the power options goes home");
 
     press(IN_DOWN, 1);
     ui_input(IN_OK);

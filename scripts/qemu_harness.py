@@ -48,6 +48,14 @@ class Device:
         threading.Thread(target=self._read, daemon=True).start()
         self.wait_line(lambda l: l == "LBS-READY")
         self.wait_line(lambda l: l == "A")     # the first frame is out
+        # The device boots to OpeningSplashView, which leaves for the main
+        # menu by itself; flows start from the main menu.
+        self.first_screen = self.screen
+        if self.screen == "OpeningSplashView":
+            self.wait_screen("MainMenuView")
+            # ...and its frame, so that frame's ack is not taken for the
+            # first key's.
+            self.wait_line(lambda l: l == "A")
         return self
 
     def __exit__(self, *exc):

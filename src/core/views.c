@@ -320,9 +320,26 @@ const char *ui_selected_label(void)
             return slots[i].spec.n_buttons ? slots[i].labels[slots[i].sel] : NULL;
         }
     }
-    if (s->input == menu_input) {
+    if (s->render == menu_render) {
         const menu_t *m = s->ctx;
         return m->items[m->sel].label;
     }
     return s->selected_label ? s->selected_label(s) : NULL;
+}
+
+static void unhandled_select(int i)
+{
+    (void)i;
+    ui_home_fresh();    /* Destination(MainMenuView, clear_history=True) */
+}
+
+void UnhandledExceptionView(const char *type, const char *where, const char *message)
+{
+    char text[VIEW_TEXT_MAX];
+    snprintf(text, sizeof text, "%s\n%s", where ? where : "", message ? message : "");
+    const view_spec_t v = { .name = "UnhandledExceptionView", .status = true, .kind = NOTICE_ERROR,
+                            .title = "System Error", .headline = type, .text = text,
+                            .buttons = { "Back to Main Menu" }, .n_buttons = 1, .select = unhandled_select };
+    view_push_fresh(&v);    /* reached with clear_history */
+    ui_note("unhandled %s", type);
 }

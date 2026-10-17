@@ -351,8 +351,14 @@ void message_scanned(const char *path, size_t path_len, const char *msg, size_t 
         return;
     }
     snprintf(sm.path, sizeof sm.path, "%.*s", (int)path_len, path);
-    /* SeedSigner raises on a multisig path; here it is refused as custom. */
-    if (btc_parse_derivation_path(sm.path, &sm.parsed) != NULL || !sm.parsed.clean || sm.parsed.custom) {
+    const char *err = btc_parse_derivation_path(sm.path, &sm.parsed);
+    if (err) {
+        /* A multisig path, or too short a one: SeedSigner raises. */
+        message_flow_clear();
+        UnhandledExceptionView(err, "embit_utils.py, parse_derivation_path", sm.path);
+        return;
+    }
+    if (!sm.parsed.clean || sm.parsed.custom) {
         message_flow_clear();
         not_yet_text("Signing messages for custom derivation paths not supported");
         return;

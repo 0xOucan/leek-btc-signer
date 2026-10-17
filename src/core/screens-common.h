@@ -40,6 +40,10 @@ void ui_show_qr(const char *name, qr_encoder_t *enc, void (*on_leave)(void));
  * step that blocks the UI loop. */
 void ui_working(const char *text);
 
+/* Put the framebuffer on the panel now (the flush hook), for a screen that
+ * must be seen before a step that blocks the UI loop. */
+void ui_flush(void);
+
 /* Platform hooks: put the framebuffer on the panel; set the panel's
  * brightness, 0 to QR_BRIGHTNESS_MAX. */
 void ui_set_flush_hook(void (*fn)(void));

@@ -42,6 +42,10 @@ DONE = {
     "BackStackView": "the screen stack: sim/test_ui.c (ten levels, BACK and HOLD)",
     "NotYetImplementedView": "placeholders naming the View not ported yet: sim/test_ui.c, test_seed_flows.c",
     "ErrorView": "status screens: sim/test_screens.c; Wrong QR Type in qemu-flow",
+    "UnhandledExceptionView": "where SeedSigner raises: a SettingsQR, a PSBT, a multisig message path: test_settings_flows.c, test_psbt_flows.c, test_message_flows.c",
+    "PowerOptionsView": "the main menu's power button is BACK: test_settings_flows.c; qemu-flow power",
+    "RestartView": "wipes every seed, then the platform restarts: test_settings_flows.c",
+    "PowerOffView": "test_settings_flows.c; qemu-flow power",
     "NetworkMismatchErrorView": "test_sign_message_network_mismatch_flow, three networks: test_message_flows.c",
     "OptionDisabledView": "test_sign_message_option_disabled: test_message_flows.c",
     "LoadSeedView": "SeedSigner's menu with Electrum off (its default): test_seed_flows.c; qemu-flow",
@@ -60,6 +64,7 @@ DONE = {
     "ScanView": "sim/test_scan.c (every recorded scan); qemu-flow scan-*, seed-lifecycle",
     "ScanSeedQRView": "sim/test_scan.c; qemu-flow scan-seedqr-wrong-type",
     "ScanInvalidQRTypeView": "sim/test_scan.c; qemu-flow scan-invalid",
+    "ScanPSBTView": "a seed's Scan transaction, wrong type refused: test_psbt_flows.c",
     "ScanAddressView": "refuses other codes: test_tools_flows.c; qemu-flow verify-address",
     # Seeds: SeedSigner's tests/test_flows_seed.py, ported in sim/test_seed_flows.c
     "SeedsMenuView": "test_seed_flows.c (redirect with no seeds, list with one); qemu-flow seed-lifecycle",
@@ -147,6 +152,7 @@ DONE = {
     "ToolsAddressExplorerAddressTypeView": "all four back_button scenarios: test_tools_flows.c; qemu-flow address-explorer",
     "ToolsAddressExplorerAddressListView": "48 lists, 960 addresses as SeedSigner's, pages and BACK: test_tools_flows.c; qemu-flow address-explorer",
     "ToolsAddressExplorerAddressView": "returns to the list at the address: test_tools_flows.c; qemu-flow address-explorer",
+    "OpeningSplashView": "at boot, leaves by itself or on a key: test_settings_flows.c; qemu-flow home-menus",
 }
 
 

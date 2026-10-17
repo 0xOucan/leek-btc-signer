@@ -26,6 +26,13 @@ void ui_set_brightness_hook(void (*fn)(int level))
     brightness_hook = fn;
 }
 
+void ui_flush(void)
+{
+    if (flush_hook) {
+        flush_hook();
+    }
+}
+
 void ui_working(const char *text)
 {
     gfx_clear(C_BG);

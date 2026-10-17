@@ -41,7 +41,7 @@ static bool first_visit(const char *name)
 static void walk(int depth)
 {
     save();
-    const menu_t *m = ui_top()->input == menu_input ? ui_top()->ctx : NULL;
+    const menu_t *m = ui_top()->render == menu_render ? ui_top()->ctx : NULL;
     if (!m || depth > 6 || !first_visit(ui_top()->name)) return;
     for (int i = 0; i < m->n; i++) {
         int d = ui_depth();

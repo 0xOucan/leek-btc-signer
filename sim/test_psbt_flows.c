@@ -386,7 +386,7 @@ static const char *refusal_view(const char *error)
             return map[i][1];
         }
     }
-    return "ErrorView";     /* what SeedSigner shows as its crash screen */
+    return "UnhandledExceptionView";    /* where SeedSigner's parser raises */
 }
 
 static unsigned walked, refusals, signing_errors, views_seen;

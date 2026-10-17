@@ -12,6 +12,7 @@
 #include "theme.h"
 #include "views-address.h"
 #include "views-message.h"
+#include "views-power.h"
 #include "views-psbt.h"
 #include "views-seed.h"
 #include "views-settings.h"
@@ -90,12 +91,19 @@ const screen_t SCREEN_IO_TEST = {
 /* ---- Version ---------------------------------------------------------- */
 
 static char version_text[160] = "Unknown";
+static char version_short[48] = "";
+
+const char *screens_version(void)
+{
+    return version_short;
+}
 static const message_t version_msg = { "Version", version_text };
 const screen_t SCREEN_VERSION = SCREEN_MESSAGE("VersionView", version_msg);
 
 void screens_set_version(const char *version, const char *board,
                          const char *profile, const char *image)
 {
+    snprintf(version_short, sizeof version_short, "%s", version);
     snprintf(version_text, sizeof version_text,
              "Leek BTC Signer\n%s\n\nBoard: %s\nDisplay: %s\nImage: %s",
              version, board, profile, image);
@@ -145,7 +153,18 @@ static void home_resume(const screen_t *s)
     message_flow_clear();
 }
 
+/* SeedSigner's main menu has a power button where other screens have
+   BACK: with the encoder, BACK here opens the power options. */
+static bool home_input(const screen_t *s, input_ev_t ev)
+{
+    if (ev == IN_BACK) {
+        PowerOptionsView();
+        return true;
+    }
+    return menu_input(s, ev);
+}
+
 const screen_t SCREEN_HOME = {
-    .name = "MainMenuView", .enter = menu_enter, .render = menu_render, .input = menu_input,
+    .name = "MainMenuView", .enter = menu_enter, .render = menu_render, .input = home_input,
     .resume = home_resume, .ctx = (void *)&home_menu,
 };

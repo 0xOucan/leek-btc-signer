@@ -16,5 +16,7 @@ extern const screen_t SCREEN_SCAN_CONFIRM_SEEDQR;
 extern const screen_t SCREEN_SCAN_ADDRESS;          /* ScanAddressView */   /* SeedTranscribeSeedQRConfirmScanView */
 
 /* Text for the Version screen; set once at boot. */
+/* The version set by screens_set_version ("1a89c68"). */
+const char *screens_version(void);
 void screens_set_version(const char *version, const char *board,
                          const char *profile, const char *image);

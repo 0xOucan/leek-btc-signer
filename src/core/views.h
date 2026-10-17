@@ -54,5 +54,10 @@ int view_arg(void);
    what OK would choose. For tests, and for the harness. */
 const char *ui_selected_label(void);
 
+/* SeedSigner's UnhandledExceptionView: what it shows wherever its code
+ * raises. `type` is the exception class SeedSigner raises there, `where`
+ * and `message` the two lines under it. "Back to Main Menu" goes home. */
+void UnhandledExceptionView(const char *type, const char *where, const char *message);
+
 /* Back to the main menu with nothing else on the stack (clear_history). */
 void view_clear_history(void);

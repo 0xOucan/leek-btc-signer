@@ -195,7 +195,7 @@ static void test_sign_message_invalid_qr_flow(void)
 static void test_custom_derivation(void)
 {
     printf("== custom and multisig paths are refused\n");
-    static const char *const paths[] = { "m/99h/0/0", "m/48h/0h/0h/2h/0/0", "m/84h/0h/0h" };
+    static const char *const paths[] = { "m/99h/0/0", "m/84h/0h/0h" };
     for (size_t i = 0; i < N(paths); i++) {
         fresh();
         SETTINGS.message_signing = true;
@@ -203,6 +203,15 @@ static void test_custom_derivation(void)
         scan_request(paths[i], SHORT_MESSAGE);
         STEP("NotYetImplementedView");
     }
+    /* A multisig path: SeedSigner's parse raises. */
+    fresh();
+    SETTINGS.message_signing = true;
+    choose("Scan");
+    scan_request("m/48h/0h/0h/2h/0/0", SHORT_MESSAGE);
+    STEP("UnhandledExceptionView");
+    CHECK(strcmp(last_note, "unhandled Exception") == 0, "note %s", last_note);
+    choose("Back to Main Menu");
+    STEP("MainMenuView");
 }
 
 /* tests/test_flows_seed.py: test_back_from_seed_entry_via_seed_select */

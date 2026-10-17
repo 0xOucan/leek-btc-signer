@@ -212,6 +212,13 @@ FLOWS = {
         (["OK"], "SeedSignMessageSignedMessageQRView", ("prefix", "message-signed ")),
         (["OK"], "MainMenuView"),
     ],
+    # view.py's power views: the main menu's power button is BACK.
+    "power": [
+        (["BACK"], "PowerOptionsView"),
+        (["DOWN", "OK"], "PowerOffView"),
+        (["OK"], "PowerOptionsView"),
+        (["BACK"], "MainMenuView"),
+    ],
     "scan-invalid": [
         (["OK"], "ScanView"),
         (["hello world"], "ScanInvalidQRTypeView", "invalid"),
@@ -250,7 +257,11 @@ def io_counts(dev):
         assert not any(lit(x0, y0 + r) for r in range(7)), "%s count is not 1" % name
         assert all(lit(x0 + 2, y0 + r) for r in range(7)), "%s count is not 1" % name
 
-CHECKS = {("io-test", 3): io_counts}
+def booted_to_splash(dev):
+    assert dev.first_screen == "OpeningSplashView", "booted to %s" % dev.first_screen
+
+
+CHECKS = {("io-test", 3): io_counts, ("home-menus", 0): booted_to_splash}
 
 
 def main():

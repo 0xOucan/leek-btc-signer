@@ -18,6 +18,7 @@
 #include "input.h"
 #include "screens.h"
 #include "settings.h"
+#include "views-splash.h"
 #include "shot.h"
 #include "ui.h"
 
@@ -49,6 +50,7 @@ int main(void)
     screens_set_version(LBS_SIM_VERSION, "desktop", GFX_PROFILE_NAME, "sim");
     settings_reset();
     ui_init(&SCREEN_HOME);
+    ui_push(&SCREEN_SPLASH);    /* OpeningSplashView, then the main menu */
 
     /* Only BACK needs the state machine; the rest map straight through. */
     static const input_ev_t map[1] = { IN_BACK };

@@ -12,6 +12,7 @@
 #include "board.h"
 #include "btc-init.h"
 #include "esp_random.h"
+#include "esp_system.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -24,6 +25,8 @@
 #include "secmem.h"
 #include "settings.h"
 #include "ui.h"
+#include "views-power.h"
+#include "views-splash.h"
 #if defined(LBS_QEMU_HARNESS)
 #include "qemu-harness.h"
 #endif
@@ -104,8 +107,10 @@ void app_main(void)
 
     ui_set_clock(now_ms);
     ui_set_flush_hook(flush_now);
+    ui_set_restart_hook(esp_restart);   /* RestartView, after the seeds are wiped */
     ui_set_brightness_hook(brightness);
     ui_init(&SCREEN_HOME);
+    ui_push(&SCREEN_SPLASH);    /* OpeningSplashView, then the main menu */
 
 #if defined(LBS_QEMU)
     /* The marker the QEMU smoke test waits for. */

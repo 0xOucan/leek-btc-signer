@@ -7,31 +7,31 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**92 of 109 views: 84.4%.**
+**98 of 109 views: 89.9%.**
 
-## System: 6 of 12
+## System: 10 of 12
 
 | View | Done | Evidence |
 |---|---|---|
 | `BackStackView` | ✅ | the screen stack: sim/test_ui.c (ten levels, BACK and HOLD) |
 | `MainMenuView` | ✅ | sim/test_ui.c; qemu-flow home-menus |
-| `PowerOptionsView` |  |  |
-| `RestartView` |  |  |
-| `PowerOffView` |  |  |
+| `PowerOptionsView` | ✅ | the main menu's power button is BACK: test_settings_flows.c; qemu-flow power |
+| `RestartView` | ✅ | wipes every seed, then the platform restarts: test_settings_flows.c |
+| `PowerOffView` | ✅ | test_settings_flows.c; qemu-flow power |
 | `NotYetImplementedView` | ✅ | placeholders naming the View not ported yet: sim/test_ui.c, test_seed_flows.c |
 | `ErrorView` | ✅ | status screens: sim/test_screens.c; Wrong QR Type in qemu-flow |
 | `NetworkMismatchErrorView` | ✅ | test_sign_message_network_mismatch_flow, three networks: test_message_flows.c |
-| `UnhandledExceptionView` |  |  |
+| `UnhandledExceptionView` | ✅ | where SeedSigner raises: a SettingsQR, a PSBT, a multisig message path: test_settings_flows.c, test_psbt_flows.c, test_message_flows.c |
 | `CameraConnectionErrorView` |  |  |
 | `OptionDisabledView` | ✅ | test_sign_message_option_disabled: test_message_flows.c |
 | `RemoveMicroSDWarningView` |  |  |
 
-## Scan: 4 of 6
+## Scan: 5 of 6
 
 | View | Done | Evidence |
 |---|---|---|
 | `ScanView` | ✅ | sim/test_scan.c (every recorded scan); qemu-flow scan-*, seed-lifecycle |
-| `ScanPSBTView` |  |  |
+| `ScanPSBTView` | ✅ | a seed's Scan transaction, wrong type refused: test_psbt_flows.c |
 | `ScanSeedQRView` | ✅ | sim/test_scan.c; qemu-flow scan-seedqr-wrong-type |
 | `ScanWalletDescriptorView` |  |  |
 | `ScanAddressView` | ✅ | refuses other codes: test_tools_flows.c; qemu-flow verify-address |
@@ -147,8 +147,8 @@ writes this page and the README chart.
 | `DonateView` | ✅ | test_donate: test_settings_flows.c |
 | `VersionView` | ✅ | qemu-flow home-menus |
 
-## Splash: 0 of 1
+## Splash: 1 of 1
 
 | View | Done | Evidence |
 |---|---|---|
-| `OpeningSplashView` |  |  |
+| `OpeningSplashView` | ✅ | at boot, leaves by itself or on a key: test_settings_flows.c; qemu-flow home-menus |

@@ -436,3 +436,19 @@ per page; here one screen keeps the page, so a long message on a small
 panel needs no stack slot per page. ScanInvalidQRTypeView now ends at the
 main menu, as SeedSigner's does. 92 of 109 views.
 
+### 2026-10-17: System views
+
+Six more of SeedSigner's own views. UnhandledExceptionView ("System Error")
+now appears exactly where SeedSigner's code raises: a malformed SettingsQR,
+a PSBT whose inputs mix policies, a multisig path in a sign-message request;
+this port's stricter refusals keep their ErrorView. The main menu's power
+button is BACK on the encoder: PowerOptionsView, PowerOffView (it is safe to
+unplug at any time) and RestartView, which wipes every seed before the
+platform restarts (`esp_restart` on the board; the QEMU harness treats a
+reset as a crash, so restart is tested on the host). OpeningSplashView shows
+the name and version at boot; SeedSigner's sponsor logos are not shown, as
+they sponsor SeedSigner rather than this device, and the splash says it is
+built on SeedSigner. ScanPSBTView, already tested, is counted. 98 of 109
+views; the eleven left need multisig descriptors (T47), Electrum seeds, a
+custom derivation entry, or the board (camera, microSD).
+
