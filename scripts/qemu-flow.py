@@ -121,6 +121,15 @@ FLOWS = {
         (["OK"], "PSBTSignedQRDisplayView", ("prefix", "sign OK 2")),
         (["OK"], "MainMenuView"),
     ],
+    # A new seed from 50 rolls of 1: SeedSigner's own Views give fingerprint
+    # 65fb43fe (sim/vectors/seedsigner_tools.h).
+    "dice-seed": [
+        (["DOWN", "DOWN", "OK"], "ToolsMenuView"),
+        (["DOWN", "OK"], "ToolsDiceEntropyMnemonicLengthView"),
+        (["OK"], "ToolsDiceEntropyEntryView"),
+        (["OK"] * 50, "SeedWordsWarningView", "dice 12 65fb43fe"),
+        (["BACK"], "MainMenuView"),
+    ],
     "scan-invalid": [
         (["OK"], "ScanView"),
         (["hello world"], "ScanInvalidQRTypeView", "invalid"),

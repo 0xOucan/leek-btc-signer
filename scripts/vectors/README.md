@@ -19,7 +19,8 @@ The other generators run the same way:
 
 | Generator | Writes | Also needs |
 |---|---|---|
-| `gen_psbt_vectors.py` | `sim/vectors/seedsigner_psbt.h` | pytest |
+| `gen_psbt_vectors.py` | `sim/vectors/seedsigner_psbt.h`; with `--tests tests/test_flows_psbt.py --array VEC_PSBT_FLOWS`, `sim/vectors/seedsigner_psbt_flows.h` | pytest |
+| `gen_tools_vectors.py` | `sim/vectors/seedsigner_tools.h` (SeedSigner's dice and final-word Views, run through its FlowTest harness by `tools_flows_capture.py`) | pytest |
 | `gen_qr_vectors.py` | `sim/vectors/seedsigner_qr.h` | pytest, and SeedSigner's full `requirements.txt` (urtypes, pyzbar, qrcode, Pillow), installed with `--require-hashes` |
 
 The output names the SeedSigner commit it was generated from.

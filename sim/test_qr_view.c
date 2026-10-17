@@ -32,6 +32,7 @@
 #endif
 
 static struct quirc *qr;
+static struct quirc_data *qd;   /* allocated once, as quirc's canvas */
 static qr_view_t *view;
 static qr_encoder_t *enc;
 #define BUF_SIZE (16 * 1024)
@@ -59,11 +60,12 @@ static bool light(int x, int y)
 }
 
 /* quirc's reading of the framebuffer, or 0 bytes. */
+/* quirc's canvas is sized once, in main(). quirc allocates a new canvas
+   before freeing the old, so resizing on every read needed twice the
+   memory each time; without PSRAM the self-test image could not always
+   have it, and the codes "were not on the screen" for want of memory. */
 static size_t read_screen(uint8_t *out, size_t cap)
 {
-    if (quirc_resize(qr, GFX_W * UP, GFX_H * UP) < 0) {
-        return 0;
-    }
     int w, h;
     uint8_t *img = quirc_begin(qr, &w, &h);
     for (int y = 0; y < h; y++) {
@@ -72,17 +74,15 @@ static size_t read_screen(uint8_t *out, size_t cap)
         }
     }
     quirc_end(qr);
-    struct quirc_data *d = malloc(sizeof *d);
     size_t n = 0;
-    for (int i = 0; d && n == 0 && i < quirc_count(qr); i++) {
+    for (int i = 0; n == 0 && i < quirc_count(qr); i++) {
         struct quirc_code c;
         quirc_extract(qr, i, &c);
-        if (quirc_decode(&c, d) == QUIRC_SUCCESS && (size_t)d->payload_len <= cap) {
-            memcpy(out, d->payload, (size_t)d->payload_len);
-            n = (size_t)d->payload_len;
+        if (quirc_decode(&c, qd) == QUIRC_SUCCESS && (size_t)qd->payload_len <= cap) {
+            memcpy(out, qd->payload, (size_t)qd->payload_len);
+            n = (size_t)qd->payload_len;
         }
     }
-    free(d);
     return n;
 }
 
@@ -192,13 +192,18 @@ int main(void)
     btc_init(rand_fill);
     ui_set_clock(fake_clock);
     qr = quirc_new();
+    if (qr && quirc_resize(qr, GFX_W * UP, GFX_H * UP) < 0) {
+        quirc_destroy(qr);
+        qr = NULL;
+    }
     view = test_alloc(sizeof *view);
     enc = test_alloc(sizeof *enc);
     buf = test_alloc(BUF_SIZE);
     got_screen = test_alloc(4096);
     raw = test_alloc(10 * 1024);
     got = test_alloc(10 * 1024);
-    if (!qr || !view || !enc || !buf || !got_screen || !raw || !got) {
+    qd = test_alloc(sizeof *qd);
+    if (!qr || !view || !enc || !buf || !got_screen || !raw || !got || !qd) {
         CHECK(0, "out of memory");
         if (qr) quirc_destroy(qr);
         test_free_all();

@@ -244,9 +244,10 @@ on the host and in QEMU.
 | T30 | Logic done | LeekWallet's text entry carried over with its suite: every printable ASCII character reachable; a 17-character passphrase costs 205 presses flat, 115 with blocks. The passphrase screen comes with T36 |
 | T31 | Done on the host | `qr-view.c` and the QR display screen: SeedSigner's two-module border and 5/30 s frames, brightness on UP/DOWN (OLED contrast). `test_qr_view` and `test_screens` read the framebuffer back with quirc on all five profiles, animated PSBTs included; 9 animated PSBTs assemble off the oled128 screen |
 | T32 | Open, needs the board | Viewfinder |
-| Open | Investigating | `test_qr_view` passes on the host on all five profiles, at the device's 2x read scale and with quirc in single precision as the firmware builds it, but in the QEMU self-test quirc misses the static SeedQR, CompactSeedQR and xpub codes (the animated PSBT frames read). Out of the self-test list until understood; the encoder itself is checked module for module against python-qrcode |
+| Was open | Fixed 2026-10-17 | `test_qr_view` missed static codes in the QEMU self-test. The cause was memory in the test, not quirc: it resized quirc and allocated quirc's decode result for every read, which an image without PSRAM could not always supply. Both are allocated once now, and the suite is in the self-test again |
 | T33 | Done | `secmem.c`: secrets come from internal RAM only (ESP: `MALLOC_CAP_INTERNAL`, never PSRAM) and are wiped on free. A scanned seed never enters the decoder's arena, which may be PSRAM; `test_qr_decode` proves the arena untouched for every seed format, `test_scan` proves the Scan screen's decoder and seed came from `sec_alloc` and went back |
 | T39 | Done, single-sig and multisig without a descriptor | `views-psbt.c`: 18 of SeedSigner's 19 PSBT views. `test_psbt_flows` ports `test_flows_psbt.py` and walks all 207 parser-test PSBTs through the screens on five profiles; 155 sign to SeedSigner's PSBT. `qemu-flow.py psbt-sign` signs on the Xtensa image. Verifying multisig change against a descriptor waits for T47 |
+| T35 | Done except camera entropy | `views-tools.c`: SeedSigner's dice views (50 or 99 rolls on a 1-6 keypad with DEL) and the five final-word calculator views (coin flips, a chosen word, or zeros, then the checksum word). SeedSigner has no flow tests for these, so `gen_tools_vectors.py` runs its own Views through its FlowTest harness and records what they compute; `test_tools_flows` matches all 12 dice and 18 final-word cases on five profiles. `qemu-flow.py dice-seed` makes a seed from 50 rolls on the Xtensa image. Camera entropy waits for the board (T9) |
 | Found by QEMU | Fixed | The Scan screen sized its PSBT buffer to its whole arena, which a board short of RAM could not give; it is now bounded by the scan (`qr_decoder_psbt_max`), checked against every recorded PSBT |
 
 ### 2026-10-17: Phase 4 begins, measured in SeedSigner views
@@ -308,3 +309,28 @@ without PSRAM that sometimes could not be had; decoding was never reached.
 It now sizes one canvas at the start and says "out of memory" if it ever
 cannot, and passes on Xtensa at the 147 KB limit. The open `test_qr_view`
 failure in QEMU may have the same cause; that is the next thing to check.
+
+### 2026-10-17: New seeds from dice, and the final-word calculator
+
+Seven Tools views (`views-tools.c`): the dice length and entry, and the
+final-word calculator from the number of words to loading or discarding
+the result. The word entry gained SeedSigner's `is_calc_final_word` mode:
+it stops one word short and hands over to the calculator, and a second
+entry screen types the chosen last word. SeedSigner's dice and coin-flip
+keyboards become one keypad for the encoder (UP/DOWN choose a face or DEL,
+OK enters it); the rolls are entropy, held in internal RAM and wiped when
+the keypad closes. SeedSigner's tests have no flows for these, so
+`scripts/vectors/gen_tools_vectors.py` runs SeedSigner's own Views through
+its FlowTest harness and records the mnemonic, fingerprint and every
+figure the final-word screen shows. All 30 cases match on five profiles.
+54 of 109 views.
+
+`test_qr_view` is back in the QEMU self-test and passes there. Its long-open
+failure had the cause found in `test_qr_encode`: memory, not decoding. Both
+suites resized quirc for every read (quirc allocates the new canvas before
+freeing the old, so each read needed twice the memory) and allocated
+quirc's 9 KB decode result per code. With both suites in one image, the
+Xtensa run showed quirc finding every code and the decode buffer's malloc
+returning NULL. Both buffers are now allocated once, when each suite starts;
+on the board, quirc's buffers will live in PSRAM.
+

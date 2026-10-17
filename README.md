@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  █████████░░░░░░░░░░░  47 of 109 views (43%)
+SeedSigner  ██████████░░░░░░░░░░  54 of 109 views (50%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
@@ -69,7 +69,7 @@ are screens on top of it.
 | Feature | SeedSigner | Leek BTC Signer |
 |---|---|---|
 | SeedQR, CompactSeedQR: scan and show | ✅ | 🟡 scan to a loaded seed done; showing a SeedQR next |
-| Seeds from words, dice, coin flips | ✅ | 🟡 typing 12 or 24 words done; dice and coin flips next |
+| Seeds from words, dice, coin flips | ✅ | ✅ typing 12 or 24 words; dice (50 or 99 rolls); the final-word calculator from coin flips, a chosen word or zeros; camera entropy needs the board |
 | BIP-39 passphrase | ✅ | ✅ add, review, edit, discard, as SeedSigner's flow |
 | xpub export: static, Specter, animated UR | ✅ | ✅ the whole flow, all 21 of SeedSigner's combinations |
 | PSBT scan: UR, BBQr, Specter, base64, base43 | ✅ | 🟡 scan to seed selection works end to end in QEMU, matching SeedSigner frame by frame; camera needs the board |
@@ -89,7 +89,7 @@ are screens on top of it.
 
 | | Status |
 |---|---|
-| Seed from SeedQR (standard and compact), word entry, dice, coin flips | Logic done; screens next |
+| Seed from SeedQR (standard and compact), word entry, dice, coin flips | Done, on screen |
 | BIP-39 passphrase, fingerprint, BIP-85 child seeds | Logic done |
 | xpub export: native and nested segwit, taproot, legacy, multisig paths, SLIP-132 versions | Logic done |
 | PSBT review: change detection, fee, OP_RETURN, the anti-forgery checks | Done |

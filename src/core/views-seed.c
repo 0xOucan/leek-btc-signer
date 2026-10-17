@@ -21,6 +21,7 @@
 #include "text-entry.h"
 #include "theme.h"
 #include "views-psbt.h"
+#include "views-tools.h"
 #include "views.h"
 #include "wally_core.h"
 
@@ -356,7 +357,15 @@ void SeedReviewPassphraseView(void)
 static struct {
     MnemonicEntry e;
     size_t index;
+    /* ToolsCalcFinalWord's use (is_calc_final_word): the last word is
+       built rather than typed, so the entry stops one word short. */
+    bool calc;
 } entry;
+
+/* The calculator's own entry for the last word, when the user chooses it
+   ("Word selection entropy"): ctx 1 marks it. It shares the entry's state,
+   and on the way back hands it to the word before. */
+#define FINAL_WORD_ENTRY ((void *)1)
 
 static void entry_start_word(size_t index)
 {
@@ -366,8 +375,7 @@ static void entry_start_word(size_t index)
 
 static void entry_enter(const screen_t *s)
 {
-    (void)s;
-    entry_start_word(0);
+    entry_start_word(s->ctx == FINAL_WORD_ENTRY ? storage_mnemonic_len() - 1 : 0);
 }
 
 static void entry_render(const screen_t *s)
@@ -400,7 +408,20 @@ static void entry_word_done(void)
     }
     ui_note("word %u %s", (unsigned)entry.index + 1, entry.e.words[0]);
     mnemonic_entry_clear(&entry.e);
-    if (entry.index + 1 < storage_mnemonic_len()) {
+    const size_t n = storage_mnemonic_len();
+    if (entry.calc && entry.index + 2 >= n) {
+        /* The calculator takes over: after the next-to-last word, to ask
+           for the last bits of entropy; after a chosen last word, to show
+           the real one. Each View stays under it for BACK. */
+        entry_start_word(entry.index);
+        if (entry.index + 2 == n) {
+            ToolsCalcFinalWordFinalizePromptView();
+        } else {
+            ToolsCalcFinalWordShowFinalWordView(NULL);
+        }
+        return;
+    }
+    if (entry.index + 1 < n) {
         entry_start_word(entry.index + 1);
         return;
     }
@@ -413,7 +434,6 @@ static void entry_word_done(void)
 
 static bool entry_input(const screen_t *s, input_ev_t ev)
 {
-    (void)s;
     switch (ev) {
     case IN_UP:   mnemonic_entry_scroll(&entry.e, -1); return true;
     case IN_DOWN: mnemonic_entry_scroll(&entry.e, +1); return true;
@@ -427,6 +447,10 @@ static bool entry_input(const screen_t *s, input_ev_t ev)
             return true;
         }
         /* Nothing typed: back to the word before, or out at the first. */
+        if (s->ctx == FINAL_WORD_ENTRY) {
+            ui_pop();
+            return true;
+        }
         if (entry.index > 0) {
             entry_start_word(entry.index - 1);
             return true;
@@ -441,9 +465,11 @@ static bool entry_input(const screen_t *s, input_ev_t ev)
 
 static void entry_leave(const screen_t *s)
 {
-    (void)s;
     mnemonic_entry_clear(&entry.e);
     gfx_wipe();
+    if (s->ctx == FINAL_WORD_ENTRY && storage_mnemonic_len() >= 2) {
+        entry_start_word(storage_mnemonic_len() - 2);
+    }
 }
 
 static const screen_t MNEMONIC_ENTRY = {
@@ -451,10 +477,28 @@ static const screen_t MNEMONIC_ENTRY = {
     .input = entry_input, .leave = entry_leave,
 };
 
+static const screen_t MNEMONIC_ENTRY_FINAL = {
+    .name = "SeedMnemonicEntryView", .enter = entry_enter, .render = entry_render,
+    .input = entry_input, .leave = entry_leave, .ctx = FINAL_WORD_ENTRY,
+};
+
 void SeedMnemonicEntryView(size_t words)
 {
     storage_init_mnemonic(words);
+    entry.calc = false;
     ui_push(&MNEMONIC_ENTRY);
+}
+
+void SeedMnemonicEntryCalcView(size_t words)
+{
+    storage_init_mnemonic(words);
+    entry.calc = true;
+    ui_push(&MNEMONIC_ENTRY);
+}
+
+void SeedMnemonicEntryFinalWordView(void)
+{
+    ui_push(&MNEMONIC_ENTRY_FINAL);
 }
 
 static void invalid_select(int i)

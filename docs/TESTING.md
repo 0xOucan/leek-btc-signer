@@ -27,8 +27,11 @@ LeekWallet's `sim/` harness is carried over, with these additions:
   without hardware, including the color ones not yet in hand. This plays the role of
   SeedSigner's screenshot generator.
 - **Flow tests.** SeedSigner's `tests/test_flows_*.py` translated into scripted
-  input sequences against the screen graph: `test_seed_flows.c` and
-  `test_psbt_flows.c`, sharing the key-pressing helpers in `sim/flow.h`.
+  input sequences against the screen graph: `test_seed_flows.c`,
+  `test_psbt_flows.c` and `test_tools_flows.c`, sharing the key-pressing
+  helpers in `sim/flow.h`. Where SeedSigner has no flow test (dice, the
+  final-word calculator), its own Views are run through its FlowTest harness
+  to record what they compute, and the device must match.
   `test_psbt_flows` also walks every PSBT of SeedSigner's parser tests through
   the whole review, checking each View against SeedSigner's routing and each
   signed PSBT against SeedSigner's, on every display profile.

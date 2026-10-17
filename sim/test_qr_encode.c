@@ -48,6 +48,10 @@ static struct quirc *qr;
    memory, not on decoding. */
 #define CANVAS ((17 + 4 * 13 + 8) * 2)
 static int canvas = CANVAS;
+/* quirc's decode result (about 9 KB), allocated once with the rest: taken
+   per code, it was what ran out on Xtensa once the suite's own buffers
+   held most of the internal RAM. */
+static struct quirc_data *qd;
 
 static void rand_fill(void *p, unsigned n)
 {
@@ -114,7 +118,6 @@ static bool round_trip(const uint8_t *data, size_t len, int scale)
     quirc_end(qr);
     /* Random data can look like a finder pattern, so quirc may report a
        phantom code beside the real one: any code that decodes right counts. */
-    struct quirc_data *qd = malloc(sizeof *qd);
     bool found = false;
     for (int i = 0; qd != NULL && !found && i < quirc_count(qr); i++) {
         struct quirc_code qc;
@@ -122,7 +125,6 @@ static bool round_trip(const uint8_t *data, size_t len, int scale)
         found = quirc_decode(&qc, qd) == QUIRC_SUCCESS && (size_t)qd->payload_len == len &&
                 memcmp(qd->payload, data, len) == 0;
     }
-    free(qd);
     return found;
 }
 
@@ -353,9 +355,10 @@ int main(void)
     raw = test_alloc(PSBT_SIZE);
     got = test_alloc(PSBT_SIZE);
     modules = test_alloc(4096);
+    qd = test_alloc(sizeof *qd);
     h = test_alloc(4096);
-    CHECK(qr && arena && dec_p && enc_p && buf && part && raw && got && modules && h, "out of memory");
-    if (!qr || !arena || !dec_p || !enc_p || !buf || !part || !raw || !got || !modules || !h) {
+    CHECK(qr && arena && dec_p && enc_p && buf && part && raw && got && modules && h && qd, "out of memory");
+    if (!qr || !arena || !dec_p || !enc_p || !buf || !part || !raw || !got || !modules || !h || !qd) {
         if (qr) quirc_destroy(qr);
         test_free_all();
         return CHECK_DONE("test_qr_encode");

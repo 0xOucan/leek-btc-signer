@@ -90,6 +90,15 @@ DONE = {
     "PSBTFinalizeView": "signs to SeedSigner's exact PSBT, 155 PSBTs: test_psbt_flows.c; qemu-flow psbt-sign",
     "PSBTSignedQRDisplayView": "test_psbt_flows.c; qemu-flow psbt-sign",
     "PSBTSigningErrorView": "test_scan_multisig_psbt_seed_already_signed_flow: test_psbt_flows.c",
+    # Tools: SeedSigner has no flow tests for these, so its own Views were run
+    # through its FlowTest harness to record the results (gen_tools_vectors.py)
+    "ToolsDiceEntropyMnemonicLengthView": "test_tools_flows.c; qemu-flow dice-seed",
+    "ToolsDiceEntropyEntryView": "12 roll sequences give SeedSigner's mnemonics; DEL, BACK wipes: test_tools_flows.c; qemu-flow dice-seed",
+    "ToolsCalcFinalWordNumWordsView": "test_tools_flows.c",
+    "ToolsCalcFinalWordFinalizePromptView": "all three entropy sources, BACK: test_tools_flows.c",
+    "ToolsCalcFinalWordCoinFlipsView": "test_tools_flows.c",
+    "ToolsCalcFinalWordShowFinalWordView": "18 cases: SeedSigner's bits, checksum and final word: test_tools_flows.c",
+    "ToolsCalcFinalWordDoneView": "load and discard: test_tools_flows.c",
 }
 
 

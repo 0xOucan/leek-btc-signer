@@ -12,6 +12,11 @@
 
 void SeedsMenuView(void);
 void SeedMnemonicEntryView(size_t words);
+/* SeedMnemonicEntryView(is_calc_final_word=True), from the final-word
+ * calculator: the first n-1 words, then the calculator's prompt. */
+void SeedMnemonicEntryCalcView(size_t words);
+/* The calculator's "Word selection entropy": type the last word. */
+void SeedMnemonicEntryFinalWordView(void);
 void SeedMnemonicInvalidView(void);
 void SeedFinalizeView(void);
 void SeedAddPassphraseView(void);

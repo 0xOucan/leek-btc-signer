@@ -7,7 +7,7 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**47 of 109 views: 43.1%.**
+**54 of 109 views: 49.5%.**
 
 ## System: 4 of 12
 
@@ -114,7 +114,7 @@ writes this page and the README chart.
 | `PSBTSignedQRDisplayView` | ✅ | test_psbt_flows.c; qemu-flow psbt-sign |
 | `PSBTSigningErrorView` | ✅ | test_scan_multisig_psbt_seed_already_signed_flow: test_psbt_flows.c |
 
-## Tools: 1 of 15
+## Tools: 8 of 15
 
 | View | Done | Evidence |
 |---|---|---|
@@ -122,13 +122,13 @@ writes this page and the README chart.
 | `ToolsImageEntropyLivePreviewView` |  |  |
 | `ToolsImageEntropyFinalImageView` |  |  |
 | `ToolsImageEntropyMnemonicLengthView` |  |  |
-| `ToolsDiceEntropyMnemonicLengthView` |  |  |
-| `ToolsDiceEntropyEntryView` |  |  |
-| `ToolsCalcFinalWordNumWordsView` |  |  |
-| `ToolsCalcFinalWordFinalizePromptView` |  |  |
-| `ToolsCalcFinalWordCoinFlipsView` |  |  |
-| `ToolsCalcFinalWordShowFinalWordView` |  |  |
-| `ToolsCalcFinalWordDoneView` |  |  |
+| `ToolsDiceEntropyMnemonicLengthView` | ✅ | test_tools_flows.c; qemu-flow dice-seed |
+| `ToolsDiceEntropyEntryView` | ✅ | 12 roll sequences give SeedSigner's mnemonics; DEL, BACK wipes: test_tools_flows.c; qemu-flow dice-seed |
+| `ToolsCalcFinalWordNumWordsView` | ✅ | test_tools_flows.c |
+| `ToolsCalcFinalWordFinalizePromptView` | ✅ | all three entropy sources, BACK: test_tools_flows.c |
+| `ToolsCalcFinalWordCoinFlipsView` | ✅ | test_tools_flows.c |
+| `ToolsCalcFinalWordShowFinalWordView` | ✅ | 18 cases: SeedSigner's bits, checksum and final word: test_tools_flows.c |
+| `ToolsCalcFinalWordDoneView` | ✅ | load and discard: test_tools_flows.c |
 | `ToolsAddressExplorerSelectSourceView` |  |  |
 | `ToolsAddressExplorerAddressTypeView` |  |  |
 | `ToolsAddressExplorerAddressListView` |  |  |

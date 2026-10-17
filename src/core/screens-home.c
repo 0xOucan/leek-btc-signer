@@ -12,6 +12,7 @@
 #include "theme.h"
 #include "views-psbt.h"
 #include "views-seed.h"
+#include "views-tools.h"
 
 /* ---- Not built yet ---------------------------------------------------- */
 
@@ -21,8 +22,6 @@
 
 PENDING(CAMERA_SEED_PENDING, "New seed",
         "Camera entropy arrives with T52.");
-PENDING(DICE_PENDING, "New seed", "Dice rolls arrive with T35.");
-PENDING(FINAL_WORD_PENDING, "Final word", "Arrives with T35.");
 PENDING(EXPLORER_PENDING, "Address explorer", "Arrives with T51.");
 PENDING(VERIFY_PENDING, "Verify address", "Arrives with T40.");
 PENDING(ADVANCED_PENDING, "Advanced", "Settings arrive with T41.");
@@ -107,8 +106,8 @@ void screens_set_version(const char *version, const char *board,
 
 static const menu_item_t tools_items[] = {
     { "New seed (camera)", &CAMERA_SEED_PENDING, NULL },
-    { "New seed (dice)", &DICE_PENDING, NULL },
-    { "Calc 12th/24th word", &FINAL_WORD_PENDING, NULL },
+    { "New seed (dice)", NULL, ToolsDiceEntropyMnemonicLengthView },
+    { "Calc 12th/24th word", NULL, ToolsCalcFinalWordNumWordsView },
     { "Address explorer", &EXPLORER_PENDING, NULL },
     { "Verify address", &VERIFY_PENDING, NULL },
 };
