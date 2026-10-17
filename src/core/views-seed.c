@@ -11,6 +11,7 @@
 #include "views-seed.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "mnemonic-entry.h"
@@ -71,7 +72,7 @@ static void seed_options_select(int i)
 
 static void seed_options_back(void)
 {
-    ui_home();      /* SeedSigner: Destination(MainMenuView) */
+    ui_home_fresh();    /* SeedSigner: Destination(MainMenuView) */
 }
 
 static void seed_options(int seed, bool fresh)
@@ -460,7 +461,7 @@ static void invalid_select(int i)
         }
     } else {
         storage_discard_mnemonic();
-        ui_home();
+        ui_home_fresh();
     }
 }
 
@@ -489,7 +490,7 @@ static void discard_select(int i)
     } else {
         storage_discard(seed);
     }
-    ui_home();
+    ui_home_fresh();
     ui_note("discarded");
 }
 
@@ -637,9 +638,14 @@ static struct {
     script_opt_t script;
     xpub_qr_t format;
     char path[48];
-    qr_encoder_t enc;
-    uint8_t buf[2048];
+    /* Only while the code is on screen: the encoder's fountain scratch is
+       about 26 KB, which belongs in PSRAM rather than in internal RAM for
+       the life of the device. An xpub is public; nothing here is secret. */
+    qr_encoder_t *enc;
+    uint8_t *buf;
 } xp;
+
+#define XPUB_QR_BUF 2048
 
 static btc_script_t to_btc_script(script_opt_t s)
 {
@@ -654,29 +660,43 @@ static btc_script_t to_btc_script(script_opt_t s)
 
 static void xpub_qr_leave(void)
 {
-    qr_encoder_wipe(&xp.enc);
-    ui_after(ui_home);      /* SeedSigner: Destination(MainMenuView) */
+    if (xp.enc) {
+        qr_encoder_wipe(xp.enc);
+    }
+    free(xp.enc);
+    free(xp.buf);
+    xp.enc = NULL;
+    xp.buf = NULL;
+    ui_after(ui_home_fresh);    /* SeedSigner: Destination(MainMenuView) */
 }
 
 static void SeedExportXpubQRDisplayView(void)
 {
     const seed_t *s = storage_seed(xp.seed);
-    bool ok;
-    if (xp.format == XPUB_QR_STATIC) {
-        ok = qr_encode_xpub(&xp.enc, s, xp.path, SETTINGS.network, xp.buf, sizeof xp.buf);
+    xp.enc = malloc(sizeof *xp.enc);
+    xp.buf = malloc(XPUB_QR_BUF);
+    bool ok = xp.enc && xp.buf;
+    if (!ok) {
+        /* fall through to the message below */
+    } else if (xp.format == XPUB_QR_STATIC) {
+        ok = qr_encode_xpub(xp.enc, s, xp.path, SETTINGS.network, xp.buf, XPUB_QR_BUF);
     } else if (xp.format == XPUB_QR_SPECTER) {
-        ok = qr_encode_xpub_specter(&xp.enc, s, xp.path, SETTINGS.network, SETTINGS.qr_density,
-                                    xp.buf, sizeof xp.buf);
+        ok = qr_encode_xpub_specter(xp.enc, s, xp.path, SETTINGS.network, SETTINGS.qr_density,
+                                    xp.buf, XPUB_QR_BUF);
     } else {
-        ok = qr_encode_xpub_ur(&xp.enc, s, xp.path, SETTINGS.network, SETTINGS.qr_density,
-                               xp.buf, sizeof xp.buf);
+        ok = qr_encode_xpub_ur(xp.enc, s, xp.path, SETTINGS.network, SETTINGS.qr_density,
+                               xp.buf, XPUB_QR_BUF);
     }
     if (!ok) {
+        free(xp.enc);
+        free(xp.buf);
+        xp.enc = NULL;
+        xp.buf = NULL;
         not_yet("SeedExportXpubQRDisplayView for this path");
         return;
     }
-    ui_note("xpub-qr %s %d parts", xp.path, (int)qr_encoder_seq_len(&xp.enc));
-    ui_show_qr("SeedExportXpubQRDisplayView", &xp.enc, xpub_qr_leave);
+    ui_note("xpub-qr %s %d parts", xp.path, (int)qr_encoder_seq_len(xp.enc));
+    ui_show_qr("SeedExportXpubQRDisplayView", xp.enc, xpub_qr_leave);
 }
 
 static void details_select(int i)

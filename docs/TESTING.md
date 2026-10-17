@@ -94,6 +94,9 @@ CompactSeedQR must show fingerprint `73c5da0a`, an animated UR PSBT and a
 zlib BBQr must arrive with SeedSigner's bytes, and the Scan a SeedQR screen
 must refuse an address as SeedSigner does.
 
+A flow fails at once if the firmware prints a panic, a stack overflow or a
+software reset, rather than carrying on against a rebooted device.
+
 **The harness must never ship.** It is compiled only when `LBS_QEMU_HARNESS=1`.
 That flag is set only in `-qemu` environments, and a release check fails if the
 harness symbols appear in a release image.

@@ -72,7 +72,8 @@ FLOWS = {
         ([recorded("bbqr_5_Z_shuffled")], "NotYetImplementedView"),
     ],
     # SeedSigner's test_scan_seedqr_flow, test_export_xpub_standard_flow and
-    # test_discard_seed_flow, on one device: abandon x11 about, BIP-84.
+    # test_discard_seed_flow, on one device: abandon x11 about, whose BIP-84
+    # account xpub is BIP-84's own test vector.
     "seed-lifecycle": [
         (["OK"], "ScanView"),
         ([bytes(16)], "SeedFinalizeView", "fingerprint 73c5da0a"),
@@ -85,7 +86,7 @@ FLOWS = {
         (["OK"], "SeedExportXpubQRFormatView"),
         (["OK"], "SeedExportXpubWarningView"),
         (["OK"], "SeedExportXpubDetailsView",
-         ("prefix", "xpub m/84'/0'/0' zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDGf4wpg7FcomedGtc6jKPrGFh")),
+         ("prefix", "xpub m/84'/0'/0' zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs")),
         (["OK"], "SeedExportXpubQRDisplayView", ("prefix", "xpub-qr m/84'/0'/0'")),
         (["OK"], "MainMenuView"),
         (["DOWN", "OK"], "SeedsMenuView"),

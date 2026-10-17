@@ -282,7 +282,7 @@ bool view_push_fresh(const view_spec_t *spec)
     if (s == NULL) {
         return false;
     }
-    ui_home();
+    ui_home_fresh();
     return ui_push(s);
 }
 
@@ -299,7 +299,7 @@ int view_arg(void)
 
 void view_clear_history(void)
 {
-    ui_home();
+    ui_home_fresh();
 }
 
 const char *ui_selected_label(void)

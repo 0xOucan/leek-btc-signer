@@ -70,6 +70,8 @@ class Device:
             self.frame = (int(w), int(h), base64.b64decode(data))
         elif line.startswith("N "):
             self.notes.append(line[2:])
+        elif "Guru Meditation" in line or "stack overflow" in line or line.startswith("rst:0xc"):
+            raise AssertionError("the firmware crashed: " + line)
         elif line.startswith("E "):
             raise AssertionError("harness error: " + line)
 

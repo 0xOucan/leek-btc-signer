@@ -261,3 +261,14 @@ export), and `qemu-flow.py seed-lifecycle` runs scan, finalise, export (the
 BIP-84 zpub on the firmware) and discard on the Xtensa image. Screens now carry
 SeedSigner's View names. Settings live in RAM with SeedSigner's defaults; seeds
 in `seed-storage.c`, internal RAM only. 29 of 109 views.
+
+**Found by the firmware, fixed (2026-10-17).** Running the seed flows on the
+Xtensa image in QEMU found what the host could not: the xpub details step
+overflowed the UI task's 8 KB stack (now 16 KB); the harness compared screen
+names by pointer, so a view reusing a freed slot looked unchanged (now by
+text, and every QEMU flow fails on any panic or stack overflow); a return to
+the main menu kept the old selection where SeedSigner opens a new menu; the
+xpub QR encoder sat in internal RAM for the life of the device (now allocated
+only while shown); and a large zlib BBQr asked for more than a board without
+PSRAM has (now the largest buffer available). The QEMU self-test runs 14
+suites, all passing; `qemu-flow.py seed-lifecycle` passes in 18 steps.

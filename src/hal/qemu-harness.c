@@ -20,7 +20,6 @@
 static uint8_t last_frame[GFX_FB_BYTES];
 static bool sent_once;
 static bool resend;
-static const char *last_screen;
 
 static void put_base64(const uint8_t *in, size_t len)
 {
@@ -56,8 +55,11 @@ void qemu_harness_frame(void)
 
 void qemu_harness_screen(const char *name)
 {
-    if (name != last_screen || resend) {
-        last_screen = name;
+    /* Compared as text: a view's name lives in its slot, and the next view
+       can take the same slot, so the pointer alone does not change. */
+    static char last[48];
+    if (strcmp(name, last) != 0 || resend) {
+        snprintf(last, sizeof last, "%s", name);
         printf("S %s\n", name);
         fflush(stdout);
     }

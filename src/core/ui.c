@@ -63,6 +63,14 @@ void ui_home(void)
     }
 }
 
+void ui_home_fresh(void)
+{
+    ui_home();
+    if (depth == 1) {
+        enter(stack[0]);
+    }
+}
+
 void ui_set_hold_handler(void (*fn)(void))
 {
     hold_handler = fn ? fn : ui_home;

@@ -122,8 +122,14 @@ static bool describe(void)
     }
     if (qr_is_psbt(t)) {
         size_t n = 0;
-        const size_t cap = qr_decoder_psbt_max(scan.dec);
-        uint8_t *p = cap ? malloc(cap) : NULL;
+        /* The bound is generous for a zlib BBQr (17 times its compressed
+           size); without PSRAM it may not be there, so take the largest
+           buffer below it that is. */
+        size_t cap = qr_decoder_psbt_max(scan.dec);
+        uint8_t *p = NULL;
+        while (cap > 0 && (p = malloc(cap)) == NULL && cap >= 2048) {
+            cap /= 2;
+        }
         const bool ok = p && qr_decoder_psbt(scan.dec, p, cap, &n);
         uint8_t h[32] = { 0 };
         if (ok) {

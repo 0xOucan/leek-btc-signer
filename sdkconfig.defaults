@@ -45,6 +45,7 @@ CONFIG_SPIRAM=n
 CONFIG_NVS_ENCRYPTION=n
 CONFIG_APP_REPRODUCIBLE_BUILD=y
 
-# The UI loop runs in the main task: snprintf and the widgets' line
-# buffers need more than the 3.5 KB default.
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+# The UI loop runs in the main task, and the flows derive keys there
+# (BIP-32, base58, SHA-512) under a stack of screens. 8 KB overflowed on
+# the xpub details step in QEMU; 16 KB of internal RAM is the margin.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384

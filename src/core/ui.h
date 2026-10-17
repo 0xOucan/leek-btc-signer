@@ -41,6 +41,9 @@ void ui_init(const screen_t *root);
 bool ui_push(const screen_t *s);
 void ui_pop(void);
 void ui_home(void);
+/* Home as a new visit: the root screen entered again (a menu back at its
+   first item), as SeedSigner's Destination(MainMenuView) is a new view. */
+void ui_home_fresh(void);
 void ui_input(input_ev_t ev);
 /* Draw the top screen into the framebuffer. */
 void ui_render(void);
