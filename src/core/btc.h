@@ -16,6 +16,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* libwally is built without Elements, which changes the size of its public
+ * PSBT and transaction structs. Code that includes its headers without the
+ * same definition reads those structs at the wrong offsets. */
+#ifndef WALLY_ABI_NO_ELEMENTS
+#  error "Build with WALLY_ABI_NO_ELEMENTS=1, as components/libwally-core is"
+#endif
+
 typedef enum { BTC_NET_MAIN, BTC_NET_TEST, BTC_NET_REGTEST } btc_net_t;
 typedef enum { BTC_SIG_SINGLE, BTC_SIG_MULTI, BTC_SIG_INVALID } btc_sig_t;
 typedef enum {

@@ -57,6 +57,8 @@ if (( selftest )); then
     pid=$!
     while kill -0 "${pid}" 2>/dev/null; do
         if grep -q "SELFTEST-DONE" "${log}"; then break; fi
+        # A panic reboots the image and the suites start over, forever.
+        if grep -q "Guru Meditation" "${log}"; then break; fi
         sleep 1
     done
     kill "${pid}" 2>/dev/null || true

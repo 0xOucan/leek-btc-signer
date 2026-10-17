@@ -17,6 +17,7 @@
 
 int test_wally_main(void);
 int test_btc_main(void);
+int test_psbt_main(void);
 
 static const struct {
     const char *name;
@@ -24,6 +25,7 @@ static const struct {
 } suites[] = {
     { "test_wally", test_wally_main },
     { "test_btc", test_btc_main },
+    { "test_psbt", test_psbt_main },
 };
 
 static int failed;

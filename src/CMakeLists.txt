@@ -12,7 +12,7 @@ FILE(GLOB app_sources
 # with its main() renamed <suite>_main for src/selftest.c to call. The flag
 # comes through cmake_extra_args because sources are chosen at configure
 # time, before any compiler flag is read.
-set(SELFTESTS test_wally test_btc)
+set(SELFTESTS test_wally test_btc test_psbt)
 set(app_include "." "core" "hal")
 if(LBS_SELFTEST)
     foreach(t ${SELFTESTS})
@@ -23,7 +23,12 @@ if(LBS_SELFTEST)
     list(APPEND app_include "../sim")
 endif()
 
+# REQUIRES is explicit so libwally-core's PUBLIC definitions reach these
+# sources. Without it they compiled without WALLY_ABI_NO_ELEMENTS while the
+# library had it, the PSBT structs differed in size between the two, and the
+# self-test image crashed walking a PSBT. btc.h now refuses to build that way.
 idf_component_register(
     SRCS ${app_sources}
     INCLUDE_DIRS ${app_include}
+    REQUIRES libwally-core driver esp_timer esp_driver_uart esp_app_format
 )
