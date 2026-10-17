@@ -145,6 +145,28 @@ bool mnemonic_checksum_ok(const uint16_t *idx, size_t n);
 bool mnemonic_from_entropy(const uint8_t *entropy, size_t len,
                            uint16_t idx[SEED_MAX_WORDS], size_t *n);
 
+/* ---- Message signing ------------------------------------------------------ */
+
+/* SeedSigner's embit_utils.parse_derivation_path(). */
+typedef struct {
+    btc_script_t script;    /* BTC_SCRIPT_INVALID when custom */
+    bool custom;            /* CUSTOM_DERIVATION */
+    int net;                /* 0 mainnet ("0h"), 1 testnet or regtest ("1h"), -1 None */
+    int is_change;          /* 0, 1, -1 None */
+    long index;             /* -1 None */
+    char wallet[64];        /* wallet_derivation_path, "" for None */
+    bool clean;             /* clean_match */
+} btc_msg_path_t;
+
+/* NULL, or the exception SeedSigner raises ("Exception" for a multisig
+ * path, "IndexError" for too few sections). */
+const char *btc_parse_derivation_path(const char *path, btc_msg_path_t *out);
+
+/* embit_utils.sign_message(): the Bitcoin Signed Message hash of `msg`,
+ * signed by the key at `path`, as a base64 recoverable signature. */
+bool btc_sign_message(const seed_t *s, const char *path, const uint8_t *msg, size_t len,
+                      char *out, size_t cap);
+
 /* ---- BIP-85 ------------------------------------------------------------- */
 
 /* The `index`th BIP-85 child mnemonic of `words` (12 or 24) words. */

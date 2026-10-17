@@ -11,6 +11,7 @@
 
 #include "theme.h"
 #include "views-address.h"
+#include "views-message.h"
 #include "views-psbt.h"
 #include "views-seed.h"
 #include "views-settings.h"
@@ -141,6 +142,7 @@ static void home_resume(const screen_t *s)
     psbt_flow_clear();
     tools_flow_clear();
     address_flow_clear();
+    message_flow_clear();
 }
 
 const screen_t SCREEN_HOME = {

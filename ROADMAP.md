@@ -252,6 +252,7 @@ on the host and in QEMU.
 | T37 | Done except the camera | SeedSigner's backup test (four views: every word asked once in random order, the real word among three decoys drawn from the platform RNG) and SeedQR transcription (nine views: format, warning, the whole code, zone by zone A-1 to F-6, and a confirming scan with its three outcomes). `test_seed_flows` ports `test_transcribe_seedqr_and_verify` and reads the panel back with quirc: standard and compact, 12 and 24 words, all five profiles, each is the seed's own SeedQR. `qemu-flow.py seedqr-transcribe` on the Xtensa image. Scanning the paper copy needs the camera (T9) |
 | T40 | Done, single sig | `views-address.c`: SeedSigner's six address verification views. A scanned address is sorted by type (nested segwit asks single or multi; a P2WSH address is multisig and waits for T47), the seed is chosen or loaded mid-flow, and the search runs on the screen's tick, receive and change, with Skip 10 and Cancel. `test_tools_flows` ports `test__verify_address__singlesig__flow` and finds 144 addresses from SeedSigner's own explorer lists at their index and branch; `qemu-flow.py verify-address` verifies BIP-84's first address on the Xtensa image |
 | T41 | Done, in RAM | `settings.c` ports SeedSigner's SettingsDefinition (all 24 entries, compared field by field with SeedSigner's own `to_dict()`) and `parse_settingsqr` (135 parses as SeedSigner makes them, its exceptions included); `views-settings.c` the six settings views, the menus built from that table. `test_settings_flows` ports `test_flows_settings.py` and chooses every option of every setting through its screen; `qemu-flow.py settings-network` and `settingsqr` on the Xtensa image. Persistence waits for the vault (Phase 5): until then the device is SeedSigner OS with no microSD card |
+| T49 | Done | `btc.c` ports SeedSigner's `parse_derivation_path` and `sign_message` (19 parses, their exceptions included; 192 signatures byte for byte, `test_message`); `views-message.c` the four message-signing views and SeedSigner's OptionDisabledView and NetworkMismatchErrorView. `test_message_flows` ports `TestMessageSigningFlows` and signs all 192 requests through the screens; `qemu-flow.py sign-message` on the Xtensa image |
 | Found by QEMU | Fixed | The Scan screen sized its PSBT buffer to its whole arena, which a board short of RAM could not give; it is now bounded by the scan (`qr_decoder_psbt_max`), checked against every recorded PSBT |
 
 ### 2026-10-17: Phase 4 begins, measured in SeedSigner views
@@ -419,4 +420,19 @@ refuses to be left empty. Settings that describe SeedSigner's own hardware
 SettingsQR codes apply in full, and change nothing on this board yet. The
 setting's name is the screen's title, where SeedSigner shows "Settings",
 so the options fit a small panel. 86 of 109 views.
+
+### 2026-10-17: Message signing
+
+Six views: a `signmessage` request is checked against the setting
+(OptionDisabledView), its path (custom and multisig paths are refused, as
+SeedSigner refuses them) and the network setting (NetworkMismatchErrorView,
+which opens the network setting with the menus under it); the seed is
+chosen or loaded; the message is reviewed page by page, then the address;
+the signature is shown as a QR. `gen_message_vectors.py` records SeedSigner's
+path parsing and signatures; the C signs to the same bytes. libwally's
+message hash refuses an empty message, which SeedSigner signs, so the hash
+is computed as embit computes it. SeedSigner pages a long message as a View
+per page; here one screen keeps the page, so a long message on a small
+panel needs no stack slot per page. ScanInvalidQRTypeView now ends at the
+main menu, as SeedSigner's does. 92 of 109 views.
 

@@ -4,6 +4,7 @@
 #include "btc.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "wally_address.h"
@@ -633,5 +634,119 @@ bool bip85_child(const seed_t *s, uint32_t index, size_t words,
               mnemonic_from_entropy(entropy, written, idx, n);
     wally_bzero(&root, sizeof root);
     wally_bzero(entropy, sizeof entropy);
+    return ok;
+}
+
+/* ---- Message signing ----------------------------------------------------- */
+
+/* Python's "/".split on a copy with "'" read as "h". */
+#define MSG_SECTIONS_MAX 16
+
+const char *btc_parse_derivation_path(const char *path, btc_msg_path_t *out)
+{
+    memset(out, 0, sizeof *out);
+    out->script = BTC_SCRIPT_INVALID;
+    out->net = -1;
+    out->is_change = -1;
+    out->index = -1;
+    char p[96];
+    snprintf(p, sizeof p, "%s", path);
+    for (char *c = p; *c; c++) {
+        if (*c == '\'') *c = 'h';
+    }
+    const char *sec[MSG_SECTIONS_MAX];
+    int n = 0;
+    for (char *c = p;; ) {
+        if (n == MSG_SECTIONS_MAX) return "Exception";
+        sec[n++] = c;
+        char *slash = strchr(c, '/');
+        if (!slash) break;
+        *slash = '\0';
+        c = slash + 1;
+    }
+    if (n < 2) return "IndexError";                     /* sections[1] */
+    if (strcmp(sec[1], "48h") == 0) return "Exception";  /* multisig: not implemented */
+    if (n < 3) return "IndexError";                     /* sections[2] */
+    static const struct { const char *s; btc_script_t t; } scripts[] = {
+        { "44h", BTC_SCRIPT_P2PKH }, { "49h", BTC_SCRIPT_P2SH_P2WPKH },
+        { "84h", BTC_SCRIPT_P2WPKH }, { "86h", BTC_SCRIPT_P2TR },
+    };
+    for (size_t i = 0; i < sizeof scripts / sizeof scripts[0]; i++) {
+        if (strcmp(sec[1], scripts[i].s) == 0) out->script = scripts[i].t;
+    }
+    out->custom = out->script == BTC_SCRIPT_INVALID;    /* CUSTOM_DERIVATION */
+    out->net = strcmp(sec[2], "0h") == 0 ? 0 : strcmp(sec[2], "1h") == 0 ? 1 : -1;
+    if (strcmp(sec[n - 2], "0") == 0 || strcmp(sec[n - 2], "1") == 0) {
+        out->is_change = sec[n - 2][0] == '1';
+    }
+    const char *last = sec[n - 1];
+    bool digits = *last != '\0';
+    for (const char *c = last; *c; c++) digits &= *c >= '0' && *c <= '9';
+    if (digits && strlen(last) < 10) {
+        out->index = strtol(last, NULL, 10);
+    }
+    if (out->is_change >= 0 && out->index >= 0) {
+        size_t k = 0;
+        for (int i = 0; i < n - 2 && k < sizeof out->wallet; i++) {
+            k += (size_t)snprintf(out->wallet + k, sizeof out->wallet - k, "%s%s", i ? "/" : "", sec[i]);
+        }
+    }
+    /* clean_match: every field parsed (the script type always is: custom). */
+    out->clean = out->net >= 0 && out->is_change >= 0 && out->index >= 0 && out->wallet[0];
+    return NULL;
+}
+
+/* sha256d(b"\x18Bitcoin Signed Message:\n" + compact_size(len) + msg), as
+   embit computes it. libwally's wally_format_bitcoin_message refuses an
+   empty message, which SeedSigner signs. */
+static bool message_hash(const uint8_t *msg, size_t len, uint8_t hash[SHA256_LEN])
+{
+    static const char prefix[] = "\x18" "Bitcoin Signed Message:\n";
+    const size_t plen = sizeof prefix - 1;
+    uint8_t var[9];
+    size_t vlen;
+    if (len < 0xfd) {
+        var[0] = (uint8_t)len;
+        vlen = 1;
+    } else if (len <= 0xffff) {
+        var[0] = 0xfd; var[1] = (uint8_t)len; var[2] = (uint8_t)(len >> 8);
+        vlen = 3;
+    } else {
+        var[0] = 0xfe;
+        for (int i = 0; i < 4; i++) var[1 + i] = (uint8_t)(len >> (8 * i));
+        vlen = 5;
+    }
+    uint8_t *buf = malloc(plen + vlen + len);
+    if (buf == NULL) {
+        return false;
+    }
+    memcpy(buf, prefix, plen);
+    memcpy(buf + plen, var, vlen);
+    if (len) memcpy(buf + plen + vlen, msg, len);
+    const bool ok = wally_sha256d(buf, plen + vlen + len, hash, SHA256_LEN) == WALLY_OK;
+    free(buf);
+    return ok;
+}
+
+bool btc_sign_message(const seed_t *s, const char *path, const uint8_t *msg, size_t len,
+                      char *out, size_t cap)
+{
+    uint8_t hash[SHA256_LEN], sig[EC_SIGNATURE_RECOVERABLE_LEN];
+    struct ext_key key;
+    char *b64 = NULL;
+    bool ok = derive_key(s->bytes, sizeof s->bytes, path, BTC_NET_MAIN, &key) &&
+              message_hash(msg, len, hash) &&
+              /* The recovery header is 27 + 4 (compressed) + the recovery id,
+                 as embit's sign_message writes it. */
+              wally_ec_sig_from_bytes(key.priv_key + 1, EC_PRIVATE_KEY_LEN, hash, sizeof hash,
+                                      EC_FLAG_ECDSA | EC_FLAG_RECOVERABLE, sig, sizeof sig) == WALLY_OK &&
+              wally_base64_from_bytes(sig, sizeof sig, 0, &b64) == WALLY_OK;
+    if (ok) {
+        ok = strlen(b64) < cap;
+        if (ok) snprintf(out, cap, "%s", b64);
+    }
+    if (b64) wally_free_string(b64);
+    wally_bzero(&key, sizeof key);
+    wally_bzero(hash, sizeof hash);
     return ok;
 }

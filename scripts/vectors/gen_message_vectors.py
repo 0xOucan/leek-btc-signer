@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""
+Generate sim/vectors/seedsigner_message.h: message signing as SeedSigner's
+own code does it. For each case: embit_utils.parse_derivation_path() (or the
+exception it raises), the address SeedSignMessageConfirmAddressView shows,
+and embit_utils.sign_message()'s base64 signature, for several seeds,
+messages (those of SeedSigner's test_flows_seed.py among them), paths and
+networks.
+
+    python gen_message_vectors.py --seedsigner PATH > sim/vectors/seedsigner_message.h
+
+Needs the same environment as gen_psbt_vectors.py (see README.md).
+"""
+import argparse
+import contextlib
+import os
+import subprocess
+import sys
+
+
+def c_str(s):
+    if s is None:
+        return "NULL"
+    out = []
+    for ch in s:
+        if ch == "\\":
+            out.append("\\\\")
+        elif ch == '"':
+            out.append('\\"')
+        elif ch == "\n":
+            out.append("\\n")
+        elif ord(ch) < 0x20 or ord(ch) > 0x7e:
+            out.extend("\\%03o" % b for b in ch.encode())
+        else:
+            out.append(ch)
+    return '"' + "".join(out) + '"'
+
+
+SHORT = "I attest that I control this bitcoin address blah blah blah"
+NO_WHITESPACE = ('{"height":841407,"lightning_bolt12":"lno1' + "x" * 160 + '"}')
+MULTIPAGE = ("Chancellor on brink of second bailout for banks\n\n        Billions may be needed as lending "
+             "squeeze tightens\n\n        Alistair Darling has been forced to consider a second bailout "
+             "for banks as the lending drought worsens.")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--seedsigner", required=True)
+    args = ap.parse_args()
+    ss = os.path.abspath(args.seedsigner)
+    sys.path.insert(0, os.path.join(ss, "src"))
+    with contextlib.redirect_stdout(sys.stderr):
+        from embit.networks import NETWORKS  # noqa: F401
+        from seedsigner.helpers import embit_utils
+        from seedsigner.models.seed import Seed
+        from seedsigner.models.settings_definition import SettingsConstants
+
+    paths = [
+        "m/84h/0h/0h/0/0", "m/84h/0h/0h/0/7", "m/84h/0h/0h/1/3", "m/84'/1'/0'/0/0", "m/84h/1h/0h/1/12",
+        "m/44h/0h/0h/0/0", "m/44h/1h/0h/0/2", "m/49h/0h/0h/0/0", "m/49h/1h/0h/1/1",
+        "m/86h/0h/0h/0/0", "m/86h/1h/0h/0/5",
+        "m/99h/0/0", "m/84h/2h/0h/0/0", "m/84h/0h/0h/2/0", "m/84h/0h/0h/0/x", "m/84h/0h/0h",
+        "m/48h/0h/0h/2h/0/0", "m", "m/84h",
+    ]
+    parses = []
+    for p in paths:
+        r = {"path": p}
+        try:
+            d = embit_utils.parse_derivation_path(p)
+            net = d["network"]
+            r.update(script_type=d["script_type"],
+                     network=("T,R" if isinstance(net, list) else net),
+                     is_change=d["is_change"], index=d["index"],
+                     wallet=d["wallet_derivation_path"], clean=d["clean_match"])
+        except Exception as e:
+            r["error"] = type(e).__name__
+        parses.append(r)
+
+    mnemonics = ["abandon " * 11 + "about",
+                 "blush twice taste dawn feed second opinion lazy thumb play neglect impact"]
+    messages = [SHORT, NO_WHITESPACE, MULTIPAGE, "", "a", "hello world"]
+    nets = {"M": SettingsConstants.MAINNET, "T": SettingsConstants.TESTNET, "R": SettingsConstants.REGTEST}
+    signs = []
+    for m in mnemonics:
+        seed = Seed(m.split())
+        for p in paths:
+            try:
+                d = embit_utils.parse_derivation_path(p)
+            except Exception:
+                continue
+            if not d["clean_match"]:
+                continue
+            for setting_net in ("M", "T", "R"):
+                # SeedSignMessageConfirmAddressView: the path's network must
+                # agree with the setting; testnet paths take the setting's.
+                if d["network"] == SettingsConstants.MAINNET:
+                    if setting_net != "M":
+                        continue
+                    net = "M"
+                else:
+                    if setting_net == "M":
+                        continue
+                    net = setting_net
+                xpub = seed.get_xpub(wallet_path=d["wallet_derivation_path"], network=nets[net])
+                address = embit_utils.get_single_sig_address(
+                    xpub=xpub, script_type=d["script_type"], index=d["index"], is_change=d["is_change"],
+                    embit_network=embit_utils.get_embit_network_name(nets[net]))
+                for msg in messages:
+                    sig = embit_utils.sign_message(seed_bytes=seed.seed_bytes, derivation=p, msg=msg.encode())
+                    signs.append(dict(mnemonic=m, path=p, net=net, message=msg, address=address,
+                                      signature=sig))
+
+    commit = subprocess.run(["git", "-C", ss, "rev-parse", "HEAD"], capture_output=True,
+                            text=True).stdout.strip() or "unknown"
+    nets_c = {"M": "BTC_NET_MAIN", "T": "BTC_NET_TEST", "R": "BTC_NET_REGTEST"}
+    out = []
+    w = out.append
+    w("/*")
+    w(" * GENERATED by scripts/vectors/gen_message_vectors.py - do not edit.")
+    w(" * Message signing by SeedSigner's own code at commit %s:" % commit)
+    w(" * %d derivation path parses, %d signatures with their addresses." % (len(parses), len(signs)))
+    w(" * SeedSigner is MIT licensed, Copyright (c) 2021 SeedSigner.")
+    w(" */")
+    w("#pragma once")
+    w("#include <stdbool.h>")
+    w('#include "btc.h"')
+    w("")
+    w("typedef struct {")
+    w("    const char *path;")
+    w("    const char *error;          /* the exception parse_derivation_path raises, or NULL */")
+    w("    const char *script_type;    /* \"nat\" \"nes\" \"leg\" \"tr\" \"cus\" */")
+    w("    const char *network;        /* \"M\", \"T,R\", or NULL */")
+    w("    int is_change;              /* 0, 1, -1 for None */")
+    w("    long index;                 /* -1 for None */")
+    w("    const char *wallet;         /* the wallet-level path, or NULL */")
+    w("    bool clean;")
+    w("} vec_msg_path_t;")
+    w("typedef struct {")
+    w("    const char *mnemonic, *path;")
+    w("    btc_net_t net;")
+    w("    const char *message, *address, *signature;")
+    w("} vec_msg_sign_t;")
+    w("")
+    w("static const vec_msg_path_t VEC_MSG_PATHS[] = {")
+    for r in parses:
+        if "error" in r:
+            w("    { %s, %s, NULL, NULL, -1, -1, NULL, false }," % (c_str(r["path"]), c_str(r["error"])))
+        else:
+            w("    { %s, NULL, %s, %s, %d, %d, %s, %s }," % (
+                c_str(r["path"]), c_str(r["script_type"]), c_str(r["network"]),
+                -1 if r["is_change"] is None else int(r["is_change"]),
+                -1 if r["index"] is None else r["index"], c_str(r["wallet"]),
+                "true" if r["clean"] else "false"))
+    w("};")
+    w("static const vec_msg_sign_t VEC_MSG_SIGNS[] = {")
+    for r in signs:
+        w("    { %s, %s, %s, %s, %s, %s }," % (c_str(r["mnemonic"]), c_str(r["path"]), nets_c[r["net"]],
+                                           c_str(r["message"]), c_str(r["address"]), c_str(r["signature"])))
+    w("};")
+    print("\n".join(out))
+
+
+if __name__ == "__main__":
+    main()

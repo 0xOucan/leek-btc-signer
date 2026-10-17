@@ -42,6 +42,8 @@ DONE = {
     "BackStackView": "the screen stack: sim/test_ui.c (ten levels, BACK and HOLD)",
     "NotYetImplementedView": "placeholders naming the View not ported yet: sim/test_ui.c, test_seed_flows.c",
     "ErrorView": "status screens: sim/test_screens.c; Wrong QR Type in qemu-flow",
+    "NetworkMismatchErrorView": "test_sign_message_network_mismatch_flow, three networks: test_message_flows.c",
+    "OptionDisabledView": "test_sign_message_option_disabled: test_message_flows.c",
     "LoadSeedView": "SeedSigner's menu with Electrum off (its default): test_seed_flows.c; qemu-flow",
     "ToolsMenuView": "SeedSigner's five entries: qemu-flow home-menus",
     "IOTestView": "qemu-flow io-test; test_io_test: test_settings_flows.c",
@@ -89,6 +91,12 @@ DONE = {
     "SeedBIP85SelectNumWordsView": "test_seed_flows.c",
     "SeedBIP85SelectChildIndexView": "18 children word for word, on five profiles: test_seed_flows.c",
     "SeedBIP85InvalidChildIndexView": "2^31 and an empty index: test_seed_flows.c",
+    # Message signing: SeedSigner's TestMessageSigningFlows, and 192 requests
+    # signed to SeedSigner's signatures through the screens
+    "SeedSignMessageStartView": "setting, path and network checks: test_message_flows.c; qemu-flow sign-message",
+    "SeedSignMessageConfirmMessageView": "paged, BACK pages back: test_message_flows.c; qemu-flow sign-message",
+    "SeedSignMessageConfirmAddressView": "192 addresses as SeedSigner's: test_message_flows.c; qemu-flow sign-message",
+    "SeedSignMessageSignedMessageQRView": "192 signatures byte for byte (test_message.c): test_message_flows.c; qemu-flow sign-message",
     # The backup test and SeedQR transcription
     "SeedWordsBackupTestPromptView": "verify and skip, loaded and pending seeds: test_seed_flows.c",
     "SeedWordsBackupTestView": "every word asked once, decoys, secure RNG: test_seed_flows.c",

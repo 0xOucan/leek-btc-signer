@@ -285,3 +285,25 @@ void settings_scanned(const char *text, size_t len)
     view_replace(&v);
     ui_note("settingsqr applied %d", q.n);
 }
+
+/* ---- Opening one setting from elsewhere ------------------------------------ */
+
+void settings_open_entry(const char *attr_name)
+{
+    const int id = setting_by_attr(attr_name);
+    if (id < 0) {
+        return;
+    }
+    build();
+    /* As SeedSigner's clear_history Destination: the menus that lead to the
+       setting are under it, so BACK climbs them to home. */
+    view_clear_history();
+    ui_push(&SCREEN_SETTINGS);
+    if (SETTINGS_DEF[id].visibility != SVIS_GENERAL) {
+        ui_push(&SETTINGS_ADVANCED);
+    }
+    if (SETTINGS_DEF[id].visibility == SVIS_HARDWARE) {
+        ui_push(&SETTINGS_HARDWARE);
+    }
+    ui_push(&ENTRY_SCREENS[id]);
+}

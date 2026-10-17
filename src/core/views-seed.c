@@ -24,6 +24,7 @@
 #include "keypad.h"
 #include "qrcode.h"
 #include "views-address.h"
+#include "views-message.h"
 #include "views-psbt.h"
 #include "views-tools.h"
 #include "views.h"
@@ -73,7 +74,7 @@ static void seed_options_select(int i)
     case OPT_EXPORT_XPUB:   SeedExportXpubSigTypeView(seed); break;
     case OPT_EXPLORER:      tools_explorer_from_seed(seed); break;
     case OPT_BACKUP:        SeedBackupView(seed); break;
-    case OPT_SIGN_MESSAGE:  not_yet("SeedSignMessageStartView"); break;
+    case OPT_SIGN_MESSAGE:  message_from_seed(seed); break;
     case OPT_BIP85:         SeedBIP85SelectNumWordsView(seed); break;
     case OPT_DISCARD:       SeedDiscardView(seed); break;
     }
@@ -106,8 +107,10 @@ static void seed_options(int seed, bool fresh)
         view_clear_history();   /* clear_history=True */
     }
     /* A seed loaded mid-flow goes back to it (resume_main_flow), in
-       SeedSigner's order: address verification, the explorer, a PSBT. */
-    if (address_verify_resume(seed) || tools_explorer_resume(seed) || psbt_flow_resume(seed)) {
+       SeedSigner's order: address verification, the explorer, a message to
+       sign, a PSBT. */
+    if (address_verify_resume(seed) || tools_explorer_resume(seed) || message_resume(seed) ||
+        psbt_flow_resume(seed)) {
         return;
     }
     view_push(&v);

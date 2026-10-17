@@ -29,6 +29,7 @@
 #include "seed-storage.h"
 #include "settings.h"
 #include "views-address.h"
+#include "views-message.h"
 #include "views-settings.h"
 #include "views-psbt.h"
 #include "views-seed.h"
@@ -62,7 +63,21 @@ static char result_title[24];
 static char result_body[200];
 static const message_t result_msg = { result_title, result_body };
 /* Named after the SeedSigner View it stands for, set with the text. */
-static screen_t SCAN_RESULT = SCREEN_MESSAGE("NotYetImplementedView", result_msg);
+/* ScanInvalidQRTypeView ends at the main menu, dropping any flow in
+   progress, as SeedSigner's does; the other results go back. */
+static bool result_input(const screen_t *s, input_ev_t ev)
+{
+    if (ev == IN_OK && strcmp(s->name, "ScanInvalidQRTypeView") == 0) {
+        ui_home_fresh();
+        return true;
+    }
+    return message_input(s, ev);
+}
+
+static screen_t SCAN_RESULT = {
+    .name = "NotYetImplementedView", .render = message_render, .input = result_input,
+    .ctx = (void *)&result_msg,
+};
 
 static void result(const char *title, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
@@ -186,9 +201,15 @@ static route_t describe(void)
         return ROUTE_RESULT;
     }
     if (t == QR_TYPE_SIGN_MESSAGE) {
-        result("Sign message", "Request received.\n\nMessage signing arrives with T49.");
-        result_view("NotYetImplementedView");
-        ui_note("signmessage");
+        const char *path, *msg;
+        size_t path_len, msg_len;
+        if (qr_decoder_sign_message(scan.dec, &path, &path_len, &msg, &msg_len)) {
+            /* SeedSignMessageStartView, in this screen's place. */
+            message_scanned(path, path_len, msg, msg_len);
+            return ROUTE_DONE;
+        }
+        result("Error", "The sign message request could not be read.");
+        result_view("ErrorView");
         return ROUTE_RESULT;
     }
     result("Scan", "Received \"%s\".\n\nUsing it arrives with T47.", qr_type_name(t));

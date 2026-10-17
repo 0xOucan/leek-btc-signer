@@ -7,9 +7,9 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**86 of 109 views: 78.9%.**
+**92 of 109 views: 84.4%.**
 
-## System: 4 of 12
+## System: 6 of 12
 
 | View | Done | Evidence |
 |---|---|---|
@@ -20,10 +20,10 @@ writes this page and the README chart.
 | `PowerOffView` |  |  |
 | `NotYetImplementedView` | ✅ | placeholders naming the View not ported yet: sim/test_ui.c, test_seed_flows.c |
 | `ErrorView` | ✅ | status screens: sim/test_screens.c; Wrong QR Type in qemu-flow |
-| `NetworkMismatchErrorView` |  |  |
+| `NetworkMismatchErrorView` | ✅ | test_sign_message_network_mismatch_flow, three networks: test_message_flows.c |
 | `UnhandledExceptionView` |  |  |
 | `CameraConnectionErrorView` |  |  |
-| `OptionDisabledView` |  |  |
+| `OptionDisabledView` | ✅ | test_sign_message_option_disabled: test_message_flows.c |
 | `RemoveMicroSDWarningView` |  |  |
 
 ## Scan: 4 of 6
@@ -37,7 +37,7 @@ writes this page and the README chart.
 | `ScanAddressView` | ✅ | refuses other codes: test_tools_flows.c; qemu-flow verify-address |
 | `ScanInvalidQRTypeView` | ✅ | sim/test_scan.c; qemu-flow scan-invalid |
 
-## Seeds: 40 of 48
+## Seeds: 44 of 48
 
 | View | Done | Evidence |
 |---|---|---|
@@ -85,10 +85,10 @@ writes this page and the README chart.
 | `SeedAddressVerificationSuccessView` | ✅ | test_tools_flows.c; qemu-flow verify-address |
 | `LoadMultisigWalletDescriptorView` |  |  |
 | `MultisigWalletDescriptorView` |  |  |
-| `SeedSignMessageStartView` |  |  |
-| `SeedSignMessageConfirmMessageView` |  |  |
-| `SeedSignMessageConfirmAddressView` |  |  |
-| `SeedSignMessageSignedMessageQRView` |  |  |
+| `SeedSignMessageStartView` | ✅ | setting, path and network checks: test_message_flows.c; qemu-flow sign-message |
+| `SeedSignMessageConfirmMessageView` | ✅ | paged, BACK pages back: test_message_flows.c; qemu-flow sign-message |
+| `SeedSignMessageConfirmAddressView` | ✅ | 192 addresses as SeedSigner's: test_message_flows.c; qemu-flow sign-message |
+| `SeedSignMessageSignedMessageQRView` | ✅ | 192 signatures byte for byte (test_message.c): test_message_flows.c; qemu-flow sign-message |
 
 ## PSBT signing: 18 of 19
 

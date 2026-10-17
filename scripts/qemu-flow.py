@@ -194,6 +194,24 @@ FLOWS = {
          "settingsqr applied 15"),
         (["OK"], "MainMenuView"),
     ],
+    # SeedSigner's test_sign_message_flow, scenario 2, on the firmware: the
+    # signature must be SeedSigner's (sim/vectors/seedsigner_message.h).
+    "sign-message": [
+        (["DOWN", "DOWN", "DOWN", "OK"], "SettingsMenuView"),
+        (["DOWN", "DOWN", "DOWN", "OK"], "SettingsMenuView"),
+        (["DOWN"] * 12 + ["OK"], "SettingsEntryUpdateSelectionView"),
+        (["UP", "OK"], "SettingsEntryUpdateSelectionView", "setting message_signing=E"),
+        (["HOLD", "UP", "UP", "UP", "OK"], "ScanView"),     # HOLD keeps the menu on Settings
+        ([bytes(16)], "SeedFinalizeView", "fingerprint 73c5da0a"),
+        (["OK"], "SeedOptionsView"),
+        (["DOWN", "DOWN", "DOWN", "DOWN", "OK"], "ScanView"),
+        (["signmessage m/84h/0h/0h/0/0 ascii:I attest that I control this bitcoin address blah blah blah"],
+         "SeedSignMessageConfirmMessageView"),
+        (["OK"], "SeedSignMessageConfirmAddressView",
+         "message-address bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"),
+        (["OK"], "SeedSignMessageSignedMessageQRView", ("prefix", "message-signed ")),
+        (["OK"], "MainMenuView"),
+    ],
     "scan-invalid": [
         (["OK"], "ScanView"),
         (["hello world"], "ScanInvalidQRTypeView", "invalid"),

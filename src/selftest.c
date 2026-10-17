@@ -19,7 +19,7 @@
 #define SUITES(X) X(test_wally) X(test_btc) X(test_psbt) X(test_cbor) X(test_ur)  \
     X(test_ur_fountain) X(test_ur_decoder) X(test_ur_encoder) X(test_qrcode)   \
     X(test_qr_decode) X(test_qr_encode) X(test_scan) X(test_widgets)      \
-    X(test_text_entry) X(test_qr_view) X(test_settings)
+    X(test_text_entry) X(test_qr_view) X(test_settings) X(test_message)
 
 #define DECLARE(t) int t##_main(void);
 SUITES(DECLARE)

@@ -14,7 +14,7 @@ FILE(GLOB app_sources
 # time, before any compiler flag is read.
 set(SELFTESTS test_wally test_btc test_psbt test_cbor test_ur test_ur_fountain
     test_ur_decoder test_ur_encoder test_qrcode test_qr_decode test_qr_encode test_scan
-    test_widgets test_text_entry test_qr_view test_settings)
+    test_widgets test_text_entry test_qr_view test_settings test_message)
 set(app_include "." "core" "hal")
 if(LBS_SELFTEST)
     foreach(t ${SELFTESTS})

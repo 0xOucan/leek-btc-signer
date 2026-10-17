@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  ████████████████░░░░  86 of 109 views (79%)
+SeedSigner  █████████████████░░░  92 of 109 views (84%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
@@ -81,7 +81,7 @@ are screens on top of it.
 | Address verification | ✅ | ✅ single sig: scan an address, pick or load the seed, search receive and change until it matches; multisig with descriptors in Phase 6 |
 | Multisig: descriptors, cosigner checks | ✅ | 🟡 multisig PSBTs reviewed and signed; change verification against a descriptor in Phase 6 |
 | BIP-85 child seeds | ✅ | ✅ 12 or 24 words at any index, shown and backup-tested like a seed |
-| Message signing | ✅ | 🟡 request decoding done; signing in Phase 6 |
+| Message signing | ✅ | ✅ signmessage requests reviewed page by page and signed to SeedSigner's exact signatures |
 | Settings and SettingsQR | ✅ | ✅ every setting at SeedSigner's menu level with its options; SettingsQR parsed as SeedSigner does (135 cases); kept in RAM until the vault (Phase 5) |
 | Languages other than English | ✅ | ⬜ not planned yet |
 

@@ -14,3 +14,8 @@ extern const screen_t SCREEN_SETTINGS;
 /* A scan completed with a SettingsQR: SettingsIngestSettingsQRView, in the
  * scan screen's place. */
 void settings_scanned(const char *text, size_t len);
+
+/* SettingsEntryUpdateSelectionView for `attr_name` ("network"), opened
+ * with clear_history: the settings menus that lead to it are under it. */
+void settings_open_entry(const char *attr_name);
+
