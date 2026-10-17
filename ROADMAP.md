@@ -207,4 +207,12 @@ on the host and in QEMU.
 | Task | State | Evidence |
 |---|---|---|
 | T12 | Done | libwally-core 1.5.6 + secp256k1-zkp vendored by `scripts/vendor-libwally.sh`, pinned by commit; Elements off; one amalgamation for host and target. Linking `btc_init` alone grows the release image from 226 KB to 388 KB of flash; the full cost is recorded as more of the library is used |
+| T13 | Done | trezor-crypto is not carried over at all: libwally's secp256k1-zkp is the only secp256k1 in the image |
+| T14 | Done | `seed_t`: 12/24 words, checksum, printable-ASCII passphrase up to 100 characters, fingerprint; `seed_clear` proven to zero the struct |
+| T15 | Done | Standard paths, xpubs, SLIP-132 versions (embit's `detect_version`), SeedSigner's `[fingerprint/path]xpub` export |
+| T16 | Done | Single-sig addresses for legacy, nested, native segwit and BIP-86 taproot, on main, test and regtest |
+| T17 | Done | Standard and compact SeedQR, encode and decode, null-byte entropy included |
+| T18 | Done | Dice (50/99 and Coldcard's sample), final-word checksum, coin flips, partial final word |
+| T48 (core) | Done | BIP-85 child mnemonics; the UI comes in Phase 6 |
+| Vectors | Done | `scripts/vectors/gen_seedsigner_vectors.py` runs SeedSigner's own code under its pinned embit and writes 290 vectors to `sim/vectors/seedsigner_core.h`. `test_btc` passes all of them on the host and on the Xtensa build; four deliberate mutations of `btc.c` each made it fail |
 | T21 | Mechanism done | `s3cam-qemu-selftest` compiles the host's vector suites into the firmware and runs them at boot; `test_wally` (BIP-32 vector 1, BIP-84 zpub, fingerprint, bad checksum) passes on host and Xtensa |

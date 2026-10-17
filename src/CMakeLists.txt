@@ -12,7 +12,7 @@ FILE(GLOB app_sources
 # with its main() renamed <suite>_main for src/selftest.c to call. The flag
 # comes through cmake_extra_args because sources are chosen at configure
 # time, before any compiler flag is read.
-set(SELFTESTS test_wally)
+set(SELFTESTS test_wally test_btc)
 set(app_include "." "core" "hal")
 if(LBS_SELFTEST)
     foreach(t ${SELFTESTS})

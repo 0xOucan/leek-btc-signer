@@ -16,12 +16,14 @@
 #include "freertos/task.h"
 
 int test_wally_main(void);
+int test_btc_main(void);
 
 static const struct {
     const char *name;
     int (*run)(void);
 } suites[] = {
     { "test_wally", test_wally_main },
+    { "test_btc", test_btc_main },
 };
 
 static int failed;

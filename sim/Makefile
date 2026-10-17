@@ -30,7 +30,7 @@ VERSION  := $(shell git describe --always --dirty 2>/dev/null || echo dev)
 # Suites that depend on the display profile run once per profile; the rest
 # once.
 PER_PROFILE := test_gfx test_ui
-ONCE        := test_input test_encoder test_wally
+ONCE        := test_input test_encoder test_wally test_btc
 
 B := build
 
