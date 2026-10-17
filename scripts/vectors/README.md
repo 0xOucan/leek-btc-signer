@@ -15,6 +15,13 @@ python3 -m venv /tmp/lbs-vectors
     --seedsigner PATH/TO/seedsigner > sim/vectors/seedsigner_core.h
 ```
 
+The other generators run the same way:
+
+| Generator | Writes | Also needs |
+|---|---|---|
+| `gen_psbt_vectors.py` | `sim/vectors/seedsigner_psbt.h` | pytest |
+| `gen_qr_vectors.py` | `sim/vectors/seedsigner_qr.h` | pytest, and SeedSigner's full `requirements.txt` (urtypes, pyzbar, qrcode, Pillow), installed with `--require-hashes` |
+
 The output names the SeedSigner commit it was generated from.
 
 SeedSigner is MIT licensed (Copyright (c) 2021 SeedSigner). The generated

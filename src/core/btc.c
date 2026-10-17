@@ -78,8 +78,11 @@ static size_t indices_entropy(const uint16_t *idx, size_t n, uint8_t out[32])
     return len;
 }
 
-static bool checksum_ok(const uint16_t *idx, size_t n)
+bool mnemonic_checksum_ok(const uint16_t *idx, size_t n)
 {
+    if (n != 12 && n != 24) {
+        return false;
+    }
     uint8_t entropy[32];
     uint16_t again[SEED_MAX_WORDS];
     size_t len = indices_entropy(idx, n, entropy), m = 0;
@@ -160,7 +163,7 @@ seed_err_t seed_from_indices(seed_t *s, const uint16_t *idx, size_t n,
             return SEED_ERR_UNKNOWN_WORD;
         }
     }
-    if (!checksum_ok(idx, n)) {
+    if (!mnemonic_checksum_ok(idx, n)) {
         return SEED_ERR_CHECKSUM;
     }
     if (passphrase == NULL) {
@@ -279,7 +282,7 @@ bool btc_standard_path(btc_net_t net, btc_sig_t sig, btc_script_t script,
 }
 
 /* "m/84'/0'/0'" (or h) to child numbers. Returns the depth, -1 if bad. */
-static int parse_path(const char *path, uint32_t *out, int max)
+int btc_parse_path(const char *path, uint32_t *out, int max)
 {
     const char *p = path;
     if (*p == 'm') {
@@ -322,7 +325,7 @@ uint32_t btc_slip132_version(const char *path, btc_net_t net)
     const uint32_t *v = net == BTC_NET_MAIN ? MAIN : TEST;
     const uint32_t H = BIP32_INITIAL_HARDENED_CHILD;
     uint32_t p[16];
-    int depth = parse_path(path, p, 16);
+    int depth = btc_parse_path(path, p, 16);
     if (depth < 0) {
         return 0;
     }
@@ -348,7 +351,7 @@ static bool derive_key(const uint8_t *seed, size_t seed_len, const char *path,
 {
     struct ext_key root;
     uint32_t p[16];
-    int depth = parse_path(path, p, 16);
+    int depth = btc_parse_path(path, p, 16);
     bool ok = depth >= 0 &&
               bip32_key_from_seed(seed, seed_len,
                                   net == BTC_NET_MAIN ? BIP32_VER_MAIN_PRIVATE
@@ -393,6 +396,20 @@ bool btc_xpub(const uint8_t *seed, size_t seed_len, const char *path,
     }
     ok = ok && wally_base58_from_bytes(ser, sizeof ser, BASE58_FLAG_CHECKSUM, &s) == WALLY_OK;
     return ok && copy_out(s, out, cap);
+}
+
+bool btc_pubkey_at(const seed_t *s, const char *path, btc_net_t net,
+                   uint8_t pub[33], uint8_t chain[32], uint8_t parent_fp[4])
+{
+    struct ext_key key;
+    bool ok = derive_key(s->bytes, sizeof s->bytes, path, net, &key);
+    if (ok) {
+        memcpy(pub, key.pub_key, 33);
+        memcpy(chain, key.chain_code, 32);
+        memcpy(parent_fp, key.parent160, 4);
+    }
+    wally_bzero(&key, sizeof key);
+    return ok;
 }
 
 bool btc_xpub_export(const seed_t *s, const char *path, btc_net_t net,

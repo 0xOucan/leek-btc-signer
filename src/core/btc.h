@@ -96,6 +96,14 @@ uint32_t btc_slip132_version(const char *path, btc_net_t net);
 bool btc_xpub(const uint8_t *seed, size_t seed_len, const char *path,
               btc_net_t net, uint32_t version, char *out, size_t cap);
 
+/* Child numbers of "m/84h/0'/0" (also "84h/..." and a trailing "/", as
+ * embit allows). Returns the depth, or -1. */
+int btc_parse_path(const char *path, uint32_t *out, int max);
+
+/* The public key, chain code and parent fingerprint at `path`. */
+bool btc_pubkey_at(const seed_t *s, const char *path, btc_net_t net,
+                   uint8_t pub[33], uint8_t chain[32], uint8_t parent_fp[4]);
+
 /* SeedSigner's static xpub export: "[fingerprint/path]xpub", with the
  * SLIP-132 version btc_slip132_version picks. */
 bool btc_xpub_export(const seed_t *s, const char *path, btc_net_t net,
@@ -131,6 +139,8 @@ bool mnemonic_complete_checksum(const uint16_t *idx, size_t n,
                                 uint16_t out[SEED_MAX_WORDS], size_t *out_n);
 /* get_partial_final_word: 7 or 3 flips padded with zeros to a word index. */
 int mnemonic_partial_final_word(const char *flips);
+/* True if 12 or 24 word indexes end in a valid BIP-39 checksum word. */
+bool mnemonic_checksum_ok(const uint16_t *idx, size_t n);
 /* Word indexes from entropy (16 or 32 bytes), checksum included. */
 bool mnemonic_from_entropy(const uint8_t *entropy, size_t len,
                            uint16_t idx[SEED_MAX_WORDS], size_t *n);

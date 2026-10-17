@@ -37,7 +37,9 @@ It follows SeedSigner closely on purpose:
 | PSBT review: change detection, fee, OP_RETURN, the anti-forgery checks | Done |
 | PSBT signing: ECDSA and taproot key path | Done |
 | Address verification | Logic done |
-| Camera QR scanning, animated UR output | Next (Phase 2) |
+| QR decoding: UR, BBQr, Specter, base64/base43 PSBTs, every SeedQR form, addresses, sign-message | Done on the host, matches SeedSigner frame by frame |
+| QR output: SeedQR, xpubs (static, Specter, UR), animated UR PSBTs | Done on the host, matches SeedSigner part by part |
+| Camera scanning, the scan and QR screens | Next (camera needs the board) |
 | Optional vault for a stored seed, opt-in and at the user's own risk | Phase 5 |
 
 Each status has evidence behind it in [ROADMAP.md](ROADMAP.md).
@@ -63,6 +65,9 @@ embit version it pins and record what it does:
 |---|---|---|
 | Paths, xpubs, addresses, xpub exports, SeedQR, dice, BIP-85 | 290 | all match |
 | Every PSBT SeedSigner's own test suite parses | 207 | see below |
+| QR scans (SeedSigner's own decode tests and generated ones), frame by frame | 515 scans, 4827 frames | all match; descriptors wait for multisig |
+| QR type detection | 2756 frames | all match |
+| QR output parts | 6246 | all identical |
 
 The PSBT cases break down like this:
 

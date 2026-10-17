@@ -30,5 +30,5 @@ endif()
 idf_component_register(
     SRCS ${app_sources}
     INCLUDE_DIRS ${app_include}
-    REQUIRES libwally-core driver esp_timer esp_driver_uart esp_app_format
+    REQUIRES libwally-core tinf driver esp_timer esp_driver_uart esp_app_format
 )
