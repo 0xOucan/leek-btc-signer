@@ -5,9 +5,9 @@
 small board: a 1.5" monochrome OLED, a rotary encoder, four buttons, and a camera
 for QR codes. The seed lives in RAM only. Unplug it and the seed is gone.
 
-> **Status: in development. Not for real funds.** The Bitcoin core and PSBT
-> signing are done and checked against SeedSigner itself. The camera, QR codes
-> and the signing screens are next. Nothing has run on the physical board yet.
+> **Status: in development. Not for real funds.** The Bitcoin core, PSBT
+> signing and the QR layer are done and checked against SeedSigner itself. The
+> screens and the camera are next. Nothing has run on the physical board yet.
 
 ![The UI on the 1.5" 128x128 OLED, rendered by the host build](docs/img/oled128.png)
 
@@ -26,6 +26,57 @@ It follows SeedSigner closely on purpose:
 - **The same PSBT checks.** The Bitcoin logic is ported from SeedSigner and
   tested against SeedSigner's own code, so the device accepts, rejects, reviews
   and signs a PSBT the way SeedSigner does.
+
+## Progress
+
+```
+SeedSigner port  ████████░░░░░░░░░░░░  about 40%
+```
+
+![Progress by phase](docs/img/progress.svg)
+
+Each phase is weighted by the work it holds, so the total is an estimate of
+effort done, not a count of tasks. "Done" means proven on the host and in
+QEMU against SeedSigner's own behaviour; nothing has run on the board yet.
+The hard-to-verify parts (keys, PSBT rules, QR formats) come first on purpose;
+most of what remains is screens. The tasks behind each bar are in
+[ROADMAP.md](ROADMAP.md).
+
+## SeedSigner and Leek BTC Signer, side by side
+
+**The hardware**
+
+| | SeedSigner | Leek BTC Signer |
+|---|---|---|
+| Computer | Raspberry Pi Zero (v1.3, no wireless) | ESP32-S3 N16R8 CAM board: 16 MB flash, 8 MB PSRAM |
+| Software | Python on SeedSigner OS, a minimal Linux booted from a microSD card | C firmware on ESP-IDF, in the chip's flash; no SD card needed |
+| Screen | 1.3" 240x240 colour LCD | 1.5" 128x128 monochrome OLED today; 240x240 colour TFT supported for later |
+| Controls | Joystick and three keys | Rotary encoder (EC11) and four keys; encoder plus one key on the TFT modules |
+| Camera | Raspberry Pi camera (OV5647) | OV5640 on the board |
+| Radios | None on the Pi Zero v1.3 | The chip has Wi-Fi and Bluetooth hardware; **no radio stack is linked**, and every build is checked for that |
+| QR reader | zbar | quirc |
+| Seed storage | Stateless | Stateless by default; an optional vault, opt-in and at the user's own risk (Phase 5) |
+
+**The features**, with Leek BTC Signer's state:
+
+| Feature | SeedSigner | Leek BTC Signer |
+|---|---|---|
+| SeedQR, CompactSeedQR: scan and show | ✅ | 🟡 logic done, matches SeedSigner; screens next |
+| Seeds from words, dice, coin flips | ✅ | 🟡 logic done; screens next |
+| BIP-39 passphrase | ✅ | 🟡 logic done; screens next |
+| xpub export: static, Specter, animated UR | ✅ | 🟡 output identical to SeedSigner's; screens next |
+| PSBT scan: UR, BBQr, Specter, base64, base43 | ✅ | 🟡 decoding matches frame by frame; camera next |
+| PSBT review and the anti-forgery checks | ✅ | ✅ matches, plus three stricter refusals (below) |
+| PSBT signing: segwit, nested, legacy, taproot | ✅ | ✅ byte-identical signed PSBTs (taproot verified) |
+| Animated UR output of the signed PSBT | ✅ | 🟡 parts identical to SeedSigner's; screen next |
+| Address verification | ✅ | 🟡 logic done; screens next |
+| Multisig: descriptors, cosigner checks | ✅ | 🟡 PSBT checks done; descriptor import in Phase 6 |
+| BIP-85 child seeds | ✅ | 🟡 logic done; screens in Phase 6 |
+| Message signing | ✅ | 🟡 request decoding done; signing in Phase 6 |
+| SettingsQR | ✅ | 🟡 decoding done; settings screens next |
+| Languages other than English | ✅ | ⬜ not planned yet |
+
+✅ done · 🟡 partly done · ⬜ not started
 
 ## What it does
 
