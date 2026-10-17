@@ -7,7 +7,7 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**77 of 109 views: 70.6%.**
+**80 of 109 views: 73.4%.**
 
 ## System: 4 of 12
 
@@ -37,7 +37,7 @@ writes this page and the README chart.
 | `ScanAddressView` | ✅ | refuses other codes: test_tools_flows.c; qemu-flow verify-address |
 | `ScanInvalidQRTypeView` | ✅ | sim/test_scan.c; qemu-flow scan-invalid |
 
-## Seeds: 37 of 48
+## Seeds: 40 of 48
 
 | View | Done | Evidence |
 |---|---|---|
@@ -63,9 +63,9 @@ writes this page and the README chart.
 | `SeedExportXpubQRDisplayView` | ✅ | parts identical to SeedSigner's (test_qr_encode.c); qemu-flow seed-lifecycle |
 | `SeedWordsWarningView` | ✅ | test_seed_flows.c |
 | `SeedWordsView` | ✅ | pages of four words, BACK pages back, on to the backup test: test_seed_flows.c |
-| `SeedBIP85SelectNumWordsView` |  |  |
-| `SeedBIP85SelectChildIndexView` |  |  |
-| `SeedBIP85InvalidChildIndexView` |  |  |
+| `SeedBIP85SelectNumWordsView` | ✅ | test_seed_flows.c |
+| `SeedBIP85SelectChildIndexView` | ✅ | 18 children word for word, on five profiles: test_seed_flows.c |
+| `SeedBIP85InvalidChildIndexView` | ✅ | 2^31 and an empty index: test_seed_flows.c |
 | `SeedWordsBackupTestPromptView` | ✅ | verify and skip, loaded and pending seeds: test_seed_flows.c |
 | `SeedWordsBackupTestView` | ✅ | every word asked once, decoys, secure RNG: test_seed_flows.c |
 | `SeedWordsBackupTestMistakeView` | ✅ | try again, review words: test_seed_flows.c |

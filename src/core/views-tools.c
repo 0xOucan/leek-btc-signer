@@ -5,10 +5,9 @@
  * with its checksum calculated). Each function or screen is named after the
  * View it ports and routes where that View's Destination goes.
  *
- * SeedSigner's dice and coin-flip keyboards become one keypad screen for the
- * encoder: UP and DOWN choose a face (or DEL), OK enters it. The rolls and
- * flips are entropy, so they live in internal RAM and are wiped when the
- * keypad closes; notes carry only fingerprints.
+ * SeedSigner's dice and coin-flip keyboards are keypad.c's keypad. The
+ * rolls and flips are entropy, so they live in internal RAM and are wiped
+ * when the keypad closes; notes carry only fingerprints.
  *
  * The arithmetic is btc.c's port of SeedSigner's mnemonic_generation.py.
  *
@@ -24,6 +23,7 @@
 #include <string.h>
 
 #include "btc.h"
+#include "keypad.h"
 #include "qr-encode.h"
 #include "screens.h"
 #include "settings.h"
@@ -60,135 +60,6 @@ static void seed_fingerprint_of(const uint16_t *idx, size_t n, char fp[9])
     }
 }
 
-/* ---- The keypad: ToolsDiceEntropyEntryScreen, ToolsCoinFlipEntryScreen -- */
-
-#define PAD_MAX 100
-
-static struct {
-    const char *name;           /* the View it stands for */
-    const char *title;          /* "Dice Roll" or "Coin Flip" */
-    const char *keys;           /* "123456" or "10" */
-    const char *hint;           /* a line under the keys, or NULL */
-    size_t total;
-    char text[PAD_MAX + 1];
-    size_t len;
-    int sel;                    /* a key, or strlen(keys) for DEL */
-    void (*done)(const char *text);
-} pad;
-
-static int pad_keys(void)
-{
-    return (int)strlen(pad.keys);
-}
-
-static void pad_render(const screen_t *s)
-{
-    (void)s;
-    char title[32];
-    const size_t at = pad.len < pad.total ? pad.len + 1 : pad.total;
-    snprintf(title, sizeof title, "%s %u/%u", pad.title, (unsigned)at, (unsigned)pad.total);
-    ui_draw_title(title);
-    int y = THEME.top_h + THEME.pad;
-    /* The entry so far: the tail that fits. */
-    const int fit = gfx_text_fit(pad.text, THEME.body, GFX_W - 2 * THEME.pad - 6);
-    const char *tail = pad.text + (pad.len > (size_t)fit ? pad.len - (size_t)fit : 0);
-    const int x = gfx_text(THEME.pad, y, tail, THEME.body, C_FG);
-    gfx_text(x, y, "_", THEME.body, C_ACCENT);
-    y += THEME.line_h * 2;
-    /* The keys in a row, DEL last. */
-    const int n = pad_keys() + 1;
-    const int w = (GFX_W - 2 * THEME.pad) / n;
-    for (int k = 0; k < n; k++) {
-        char label[4];
-        snprintf(label, sizeof label, "%s", k < n - 1 ? (char[]){ pad.keys[k], 0 } : "DEL");
-        const int kx = THEME.pad + k * w;
-        if (k == pad.sel) {
-            gfx_fill_rect(kx, y - 2, w - 1, gfx_font_height(THEME.body) + 4, C_SEL_BG);
-        }
-        gfx_text_centered(kx, w - 1, y, label, THEME.body, k == pad.sel ? C_SEL_FG : C_FG);
-    }
-    if (pad.hint && y + THEME.line_h * 2 + gfx_font_height(THEME.body) <= GFX_H) {
-        ui_draw_wrapped(y + THEME.line_h * 2, pad.hint, C_MUTED);
-    }
-}
-
-static bool pad_input(const screen_t *s, input_ev_t ev)
-{
-    (void)s;
-    const int n = pad_keys() + 1;
-    switch (ev) {
-    case IN_UP:   pad.sel = (pad.sel + n - 1) % n; return true;
-    case IN_DOWN: pad.sel = (pad.sel + 1) % n; return true;
-    case IN_OK:
-        if (pad.sel == n - 1) {
-            if (pad.len > 0) {
-                pad.text[--pad.len] = '\0';
-            }
-            return true;
-        }
-        if (pad.len < pad.total && pad.len < PAD_MAX) {
-            pad.text[pad.len++] = pad.keys[pad.sel];
-            pad.text[pad.len] = '\0';
-        }
-        if (pad.len == pad.total) {
-            pad.done(pad.text);
-        }
-        return true;
-    default:
-        return false;       /* BACK leaves, as SeedSigner's back arrow */
-    }
-}
-
-static void pad_clear(void)
-{
-    wally_bzero(pad.text, sizeof pad.text);
-    pad.len = 0;
-}
-
-/* Back on the keypad from the view it finished into: a new entry, as
-   SeedSigner runs the View again. */
-static void pad_resume(const screen_t *s)
-{
-    (void)s;
-    pad_clear();
-}
-
-static void pad_leave(const screen_t *s)
-{
-    (void)s;
-    pad_clear();
-    gfx_wipe();
-}
-
-static screen_t PAD = {
-    .render = pad_render, .input = pad_input, .resume = pad_resume, .leave = pad_leave,
-};
-
-static void pad_open(const char *name, const char *title, const char *keys, const char *hint,
-                     size_t total, void (*done)(const char *))
-{
-    pad_clear();
-    pad.name = name;
-    pad.title = title;
-    pad.keys = keys;
-    pad.hint = hint;
-    pad.total = total < PAD_MAX ? total : PAD_MAX;
-    pad.sel = 0;
-    pad.done = done;
-    PAD.name = name;
-    ui_push(&PAD);
-}
-
-const char *views_keypad_text(void)
-{
-    return pad.text;
-}
-
-int views_keypad_sel(void)
-{
-    return pad.sel;
-}
-
 /* ---- Dice: ToolsDiceEntropyMnemonicLengthView, ToolsDiceEntropyEntryView */
 
 static void dice_done(const char *rolls)
@@ -219,8 +90,9 @@ static void dice_done(const char *rolls)
 
 static void dice_length_select(int i)
 {
-    pad_open("ToolsDiceEntropyEntryView", "Dice Roll", "123456", NULL,
-             i == 0 ? DICE_ROLLS_12 : DICE_ROLLS_24, dice_done);
+    const keypad_spec_t k = { "ToolsDiceEntropyEntryView", "Dice Roll", "123456", NULL,
+                              i == 0 ? DICE_ROLLS_12 : DICE_ROLLS_24, dice_done };
+    keypad_open(&k);
 }
 
 void ToolsDiceEntropyMnemonicLengthView(void)
@@ -343,8 +215,9 @@ static void finalize_prompt_select(int i)
     const size_t bits = n == 12 ? 7 : 3;
     if (i == 0) {
         /* ToolsCalcFinalWordCoinFlipsView */
-        pad_open("ToolsCalcFinalWordCoinFlipsView", "Coin Flip", "10", "Heads = 1, Tails = 0", bits,
-                 coin_flips_done);
+        const keypad_spec_t k = { "ToolsCalcFinalWordCoinFlipsView", "Coin Flip", "10",
+                                  "Heads = 1, Tails = 0", bits, coin_flips_done };
+        keypad_open(&k);
     } else if (i == 1) {
         SeedMnemonicEntryFinalWordView();
     } else {

@@ -21,6 +21,7 @@
 #include "text-entry.h"
 #include "theme.h"
 #include "btc-init.h"
+#include "keypad.h"
 #include "qrcode.h"
 #include "views-address.h"
 #include "views-psbt.h"
@@ -73,7 +74,7 @@ static void seed_options_select(int i)
     case OPT_EXPLORER:      tools_explorer_from_seed(seed); break;
     case OPT_BACKUP:        SeedBackupView(seed); break;
     case OPT_SIGN_MESSAGE:  not_yet("SeedSignMessageStartView"); break;
-    case OPT_BIP85:         not_yet("SeedBIP85SelectNumWordsView"); break;
+    case OPT_BIP85:         SeedBIP85SelectNumWordsView(seed); break;
     case OPT_DISCARD:       SeedDiscardView(seed); break;
     }
 }
@@ -583,9 +584,16 @@ void SeedBackupView(int seed)
     view_push(&v);
 }
 
+/* The mnemonic the words screen and the backup test show: a seed's own
+   words, or (bip85_data) a BIP-85 child's, which is a seed in its own
+   right: internal RAM, wiped when the words screen closes. */
 static struct {
     int seed;       /* -1: the pending seed */
     int page;
+    bool child;
+    uint32_t child_index;
+    uint16_t child_words[SEED_MAX_WORDS];
+    size_t child_n;
 } words;
 
 #define WORDS_PER_PAGE 4
@@ -595,10 +603,27 @@ static const seed_t *words_seed(void)
     return words.seed < 0 ? storage_pending() : storage_seed(words.seed);
 }
 
-static int words_pages(void)
+static size_t shown_n(void)
 {
     const seed_t *s = words_seed();
-    return s ? s->n_words / WORDS_PER_PAGE : 0;
+    return words.child ? words.child_n : s ? s->n_words : 0;
+}
+
+static uint16_t shown_word(size_t i)
+{
+    return words.child ? words.child_words[i] : words_seed()->words[i];
+}
+
+static void child_wipe(void)
+{
+    wally_bzero(words.child_words, sizeof words.child_words);
+    words.child = false;
+    words.child_n = 0;
+}
+
+static int words_pages(void)
+{
+    return (int)shown_n() / WORDS_PER_PAGE;
 }
 
 static void words_render(const screen_t *sc)
@@ -609,13 +634,18 @@ static void words_render(const screen_t *sc)
         return;
     }
     char title[32];
-    snprintf(title, sizeof title, "Seed Words: %d/%d", words.page + 1, words_pages());
+    if (words.child) {
+        snprintf(title, sizeof title, "Child #%u: %d/%d", (unsigned)words.child_index, words.page + 1,
+                 words_pages());
+    } else {
+        snprintf(title, sizeof title, "Seed Words: %d/%d", words.page + 1, words_pages());
+    }
     ui_draw_title(title);
     int y = THEME.top_h + THEME.pad;
     for (int k = 0; k < WORDS_PER_PAGE; k++) {
         const int i = words.page * WORDS_PER_PAGE + k;
         char line[24];
-        snprintf(line, sizeof line, "%2d: %s", i + 1, BIP39_WORDLIST[s->words[i]]);
+        snprintf(line, sizeof line, "%2d: %s", i + 1, BIP39_WORDLIST[shown_word((size_t)i)]);
         gfx_text(THEME.pad + 4, y, line, THEME.body, C_FG);
         y += THEME.line_h;
     }
@@ -651,6 +681,7 @@ static void words_leave(const screen_t *sc)
 {
     (void)sc;
     gfx_wipe();     /* the words were on the panel */
+    child_wipe();
 }
 
 static const screen_t SEED_WORDS = {
@@ -672,7 +703,15 @@ static void words_warning_select(int i)
     SeedWordsView(seed);
 }
 
+static void words_warning(int seed);
+
 void SeedWordsWarningView(int seed)
+{
+    child_wipe();
+    words_warning(seed);
+}
+
+static void words_warning(int seed)
 {
     if (!SETTINGS.dire_warnings) {
         SeedWordsView(seed);
@@ -982,12 +1021,12 @@ static void backup_test_select(int i)
     }
     /* Any button reading the real word is right, as SeedSigner compares
        the options' labels. */
-    if (strcmp(bt.labels[i], BIP39_WORDLIST[s->words[bt.cur]]) == 0) {
+    if (strcmp(bt.labels[i], BIP39_WORDLIST[shown_word((size_t)bt.cur)]) == 0) {
         if (!bt.confirmed[bt.cur]) {
             bt.confirmed[bt.cur] = true;
             bt.n_confirmed++;
         }
-        if (bt.n_confirmed == (int)s->n_words) {
+        if (bt.n_confirmed == (int)shown_n()) {
             SeedWordsBackupTestSuccessView();
         } else {
             SeedWordsBackupTestView(-1);
@@ -1008,8 +1047,8 @@ static void SeedWordsBackupTestView(int cur)
         return;
     }
     if (cur < 0) {
-        uint32_t k = rand_below((uint32_t)(s->n_words - (size_t)bt.n_confirmed));
-        for (cur = 0; cur < (int)s->n_words; cur++) {
+        uint32_t k = rand_below((uint32_t)(shown_n() - (size_t)bt.n_confirmed));
+        for (cur = 0; cur < (int)shown_n(); cur++) {
             if (!bt.confirmed[cur] && k-- == 0) {
                 break;
             }
@@ -1017,7 +1056,7 @@ static void SeedWordsBackupTestView(int cur)
     }
     bt.cur = cur;
     /* The real word and three random ones, in a random order. */
-    snprintf(bt.labels[0], sizeof bt.labels[0], "%s", BIP39_WORDLIST[s->words[cur]]);
+    snprintf(bt.labels[0], sizeof bt.labels[0], "%s", BIP39_WORDLIST[shown_word((size_t)cur)]);
     for (int k = 1; k < 4; k++) {
         snprintf(bt.labels[k], sizeof bt.labels[k], "%s", BIP39_WORDLIST[rand_below(2047)]);
     }
@@ -1388,4 +1427,86 @@ void transcribe_confirm_scanned(const uint16_t *words, size_t n)
                             .buttons = { "OK" }, .n_buttons = 1, .select = confirm_success_select,
                             .back = no_back };
     view_push(&v);
+}
+
+/* ---- BIP-85 child seeds -------------------------------------------------- */
+
+static struct {
+    int seed;
+    size_t n_words;
+} b85;
+
+static void bip85_index_done(const char *text);
+
+static void open_index_keypad(void)
+{
+    const keypad_spec_t k = { "SeedBIP85SelectChildIndexView", "BIP-85 Index", "0123456789", NULL, 0,
+                              bip85_index_done };
+    keypad_open(&k);
+}
+
+static void invalid_index_select(int i)
+{
+    (void)i;
+    ui_pop();               /* skip_current_view */
+    open_index_keypad();
+}
+
+static void SeedBIP85InvalidChildIndexView(void)
+{
+    const view_spec_t v = { .name = "SeedBIP85InvalidChildIndexView", .status = true, .kind = NOTICE_DIRE,
+                            .title = "BIP-85 Index Error", .headline = "Invalid Child Index",
+                            .text = "BIP-85 Child Index must be between 0 and 2^31-1.",
+                            .buttons = { "Try again" }, .n_buttons = 1,
+                            .select = invalid_index_select, .back = no_back };
+    view_replace(&v);       /* in the keypad's place, as skip_current_view */
+}
+
+/* SeedBIP85SelectChildIndexView's result. SeedSigner raises on an empty
+   entry (int("")); here it is an invalid index like any other. */
+static void bip85_index_done(const char *text)
+{
+    const size_t len = strlen(text);
+    unsigned long long v = 0;
+    for (size_t i = 0; i < len && v < (1ull << 31); i++) {
+        v = v * 10 + (unsigned)(text[i] - '0');
+    }
+    if (len == 0 || v >= (1ull << 31)) {
+        ui_note("bip85 invalid");
+        SeedBIP85InvalidChildIndexView();
+        return;
+    }
+    const seed_t *s = storage_seed(b85.seed);
+    size_t n = 0;
+    child_wipe();
+    if (s == NULL || !bip85_child(s, (uint32_t)v, b85.n_words, words.child_words, &n)) {
+        return;
+    }
+    words.child = true;
+    words.child_index = (uint32_t)v;
+    words.child_n = n;
+    ui_note("bip85 child %u %u", (unsigned)v, (unsigned)n);
+    /* Destination(SeedWordsWarningView, bip85_data): the keypad stays under it. */
+    words_warning(b85.seed);
+}
+
+static void bip85_words_select(int i)
+{
+    b85.seed = view_arg();
+    b85.n_words = i == 0 ? 12 : 24;
+    open_index_keypad();
+}
+
+void SeedBIP85SelectNumWordsView(int seed)
+{
+    const view_spec_t v = { .name = "SeedBIP85SelectNumWordsView", .title = "BIP-85 Num Words",
+                            .buttons = { "12 Words", "24 Words" }, .n_buttons = 2,
+                            .select = bip85_words_select, .arg = seed };
+    view_push(&v);
+}
+
+/* For the flow tests: word `i` of what the words screen shows. */
+const char *views_shown_word(size_t i)
+{
+    return i < shown_n() ? BIP39_WORDLIST[shown_word(i)] : NULL;
 }

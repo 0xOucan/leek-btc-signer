@@ -388,3 +388,16 @@ indexes per UI tick, so Skip 10 and Cancel stay live, and like SeedSigner's
 it has no upper bound. A seed loaded mid-flow resumes the search
 (`resume_main_flow`, checked first, as SeedSigner does). 77 of 109 views.
 
+### 2026-10-17: BIP-85 child seeds
+
+Three views: the child's length, its index on a digit keypad, and the
+invalid-index warning. The child is shown with SeedSigner's words screen
+("Child #N") and can be backup-tested like a seed; its words are a seed in
+their own right, so they live in internal RAM and are wiped when the words
+screen closes. The keypad that dice and coin flips used is now its own
+module (`keypad.c`), with an OK key for entries of no fixed length.
+`test_seed_flows` derives all 18 children SeedSigner's own code derived
+and checks them word for word on screen, on five profiles. One deliberate
+difference: SeedSigner raises on an empty index; here it is an invalid
+index like any other. 80 of 109 views.
+

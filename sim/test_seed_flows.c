@@ -10,6 +10,7 @@
 #include "btc-init.h"
 #include "flow.h"
 #include "quirc.h"
+#include "vectors/seedsigner_core.h"
 #include "views-tools.h"
 #include "wally_core.h"
 
@@ -445,6 +446,89 @@ static void test_transcribe_seedqr_and_verify(void)
     STEP("SeedOptionsView");
 }
 
+/* ---- BIP-85 child seeds ---------------------------------------------------- */
+
+static void test_bip85_flow(void)
+{
+    printf("== BIP-85 child seeds: every case SeedSigner's code derived, on screen\n");
+    for (size_t i = 0; i < sizeof VEC_BIP85 / sizeof VEC_BIP85[0]; i++) {
+        const vec_bip85_t *v = &VEC_BIP85[i];
+        fresh();
+        SETTINGS.bip85_child_seeds = true;
+        seed_t s;
+        seed_from_mnemonic(&s, v->mnemonic, "");
+        storage_set_pending(&s);
+        seed_clear(&s);
+        storage_finalize();
+        SeedOptionsView(0);
+        choose("BIP-85 child seed");
+        STEP("SeedBIP85SelectNumWordsView");
+        choose(v->words == 12 ? "12 Words" : "24 Words");
+        STEP("SeedBIP85SelectChildIndexView");
+        char index[16];
+        snprintf(index, sizeof index, "%u", v->index);
+        keypad("0123456789", index);
+        keypad_to(11);      /* OK */
+        key(IN_OK);
+        STEP("SeedWordsWarningView");
+        choose("I understand");
+        STEP("SeedWordsView");
+        /* The child's words, as SeedSigner derives them. */
+        char want[300];
+        snprintf(want, sizeof want, "%s", v->child);
+        size_t k = 0;
+        for (char *w = strtok(want, " "); w; w = strtok(NULL, " "), k++) {
+            const char *got = views_shown_word(k);
+            CHECK(got && strcmp(got, w) == 0, "bip85 %zu: word %zu is %s, want %s", i, k + 1,
+                  got ? got : "-", w);
+        }
+        CHECK(k == v->words && views_shown_word(k) == NULL, "bip85 %zu: %zu words", i, k);
+        for (unsigned p = 0; p < v->words / 4; p++) key(IN_OK);
+        STEP("SeedWordsBackupTestPromptView");
+        choose("Skip");
+        STEP("SeedOptionsView");
+        /* The child is wiped: the words are the seed's own again. */
+        char first[16];
+        sscanf(v->mnemonic, "%15s", first);
+        CHECK(views_shown_word(0) && strcmp(views_shown_word(0), first) == 0,
+              "bip85 %zu: the child's words were not wiped", i);
+    }
+
+    /* Out of range, and empty: SeedBIP85InvalidChildIndexView, then again. */
+    fresh();
+    SETTINGS.bip85_child_seeds = true;
+    load_blush();
+    SeedOptionsView(0);
+    choose("BIP-85 child seed");
+    choose("12 Words");
+    keypad("0123456789", "2147483648");
+    keypad_to(11);
+    key(IN_OK);
+    STEP("SeedBIP85InvalidChildIndexView");
+    key(IN_BACK);
+    STEP("SeedBIP85InvalidChildIndexView");     /* no way back */
+    choose("Try again");
+    STEP("SeedBIP85SelectChildIndexView");
+    keypad_to(11);
+    key(IN_OK);
+    STEP("SeedBIP85InvalidChildIndexView");
+    choose("Try again");
+    keypad("0123456789", "2147483647");
+    keypad_to(11);
+    key(IN_OK);
+    STEP("SeedWordsWarningView");
+
+    /* Off (SeedSigner's default): not offered. */
+    fresh();
+    load_blush();
+    SeedOptionsView(0);
+    for (int i = 0; i < 12; i++) {
+        const char *sel = ui_selected_label();
+        CHECK(!sel || strcmp(sel, "BIP-85 child seed") != 0, "BIP-85 offered while disabled");
+        key(IN_DOWN);
+    }
+}
+
 int main(void)
 {
     btc_init(rand_fill);
@@ -460,6 +544,7 @@ int main(void)
     test_backup_test_flow();
     test_transcribe_every_format();
     test_transcribe_seedqr_and_verify();
+    test_bip85_flow();
     fresh();
     storage_wipe_all();
     return CHECK_DONE("test_seed_flows");

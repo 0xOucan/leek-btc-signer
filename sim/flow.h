@@ -21,6 +21,7 @@
 #include "views-address.h"
 #include "views-psbt.h"
 #include "views-seed.h"
+#include "keypad.h"
 #include "views-tools.h"
 #include "views.h"
 
@@ -182,3 +183,19 @@ static inline void scan(const uint8_t *data, size_t len)
     }
 }
 
+/* Move the keypad's selection to key `want` (its length: DEL) with DOWN. */
+static inline void keypad_to(int want)
+{
+    for (int guard = 0; guard < 16 && views_keypad_sel() != want; guard++) {
+        key(IN_DOWN);
+    }
+}
+
+/* Enter `text` on the keypad as a user would: DOWN to each key, OK. */
+static inline void keypad(const char *keys, const char *text)
+{
+    for (const char *c = text; *c; c++) {
+        keypad_to((int)(strchr(keys, *c) - keys));
+        key(IN_OK);
+    }
+}

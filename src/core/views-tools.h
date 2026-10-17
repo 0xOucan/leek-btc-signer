@@ -25,7 +25,4 @@ bool tools_explorer_resume(int seed);
 /* What MainMenuView drops: resume_main_flow for the explorer. */
 void tools_flow_clear(void);
 
-/* For the flow tests: the keypad screen's entry so far, and the key
- * selected (its key count for DEL). */
-const char *views_keypad_text(void);
-int views_keypad_sel(void);
+#include "keypad.h"     /* views_keypad_text(), views_keypad_sel() for the tests */

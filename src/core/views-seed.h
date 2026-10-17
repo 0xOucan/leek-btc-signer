@@ -29,6 +29,10 @@ void SeedBackupView(int seed);
 void SeedWordsWarningView(int seed);
 void SeedWordsView(int seed);
 void SeedWordsBackupTestPromptView(int seed);
+void SeedBIP85SelectNumWordsView(int seed);
+/* For the flow tests: word `i` of the mnemonic the words screen shows (a
+ * BIP-85 child's, when it shows one), or NULL. */
+const char *views_shown_word(size_t i);
 void SeedTranscribeSeedQRFormatView(int seed);
 /* The confirming scan's result: the words of the SeedQR read, or n = 0
  * for anything that is not one. Called by the scan screen. */

@@ -77,6 +77,10 @@ DONE = {
     "SeedSelectSeedView": "loaded seeds, a seed loaded mid-flow: test_tools_flows.c; qemu-flow verify-address",
     "SeedAddressVerificationView": "144 addresses at SeedSigner's index and branch, Skip 10, Cancel: test_tools_flows.c; qemu-flow verify-address",
     "SeedAddressVerificationSuccessView": "test_tools_flows.c; qemu-flow verify-address",
+    # BIP-85 child seeds: every child mnemonic SeedSigner's code derived
+    "SeedBIP85SelectNumWordsView": "test_seed_flows.c",
+    "SeedBIP85SelectChildIndexView": "18 children word for word, on five profiles: test_seed_flows.c",
+    "SeedBIP85InvalidChildIndexView": "2^31 and an empty index: test_seed_flows.c",
     # The backup test and SeedQR transcription
     "SeedWordsBackupTestPromptView": "verify and skip, loaded and pending seeds: test_seed_flows.c",
     "SeedWordsBackupTestView": "every word asked once, decoys, secure RNG: test_seed_flows.c",

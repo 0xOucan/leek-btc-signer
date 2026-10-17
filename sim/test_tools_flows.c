@@ -29,23 +29,6 @@ static void scan_text(const char *text)
     scan((const uint8_t *)text, strlen(text));
 }
 
-/* Move the keypad's selection to key `want` (its length: DEL) with DOWN. */
-static void keypad_to(int want)
-{
-    for (int guard = 0; guard < 16 && views_keypad_sel() != want; guard++) {
-        key(IN_DOWN);
-    }
-}
-
-/* Enter `text` on the keypad as a user would: DOWN to each key, OK. */
-static void keypad(const char *keys, const char *text)
-{
-    for (const char *c = text; *c; c++) {
-        keypad_to((int)(strchr(keys, *c) - keys));
-        key(IN_OK);
-    }
-}
-
 static bool pending_is(const char *mnemonic)
 {
     const seed_t *s = storage_pending();
