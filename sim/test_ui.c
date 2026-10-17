@@ -4,6 +4,7 @@
 #include "check.h"
 #include "gfx.h"
 #include "screens.h"
+#include "settings.h"
 #include "theme.h"
 #include "ui.h"
 
@@ -59,13 +60,15 @@ static void walk(int depth)
             /* The I/O test counts BACK rather than obeying it. */
             if (strcmp(top(), "IOTestView") == 0) ui_pop(); else ui_input(IN_BACK);
         }
-        CHECK(ui_depth() == d && strcmp(top(), here) == 0, "BACK returned to %s", here);
+        CHECK(ui_depth() == d && strcmp(top(), here) == 0, "BACK returned to %s (on %s, depth %d/%d)", here,
+              top(), ui_depth(), d);
         ui_input(IN_DOWN);
     }
 }
 
 int main(void)
 {
+    settings_reset();       /* SeedSigner's defaults, as the firmware sets at boot */
     ui_init(&SCREEN_HOME);
     CHECK(strcmp(top(), "MainMenuView") == 0 && ui_depth() == 1, "starts at home");
 
@@ -142,7 +145,9 @@ int main(void)
     screens_set_version("test", "HOST", GFX_PROFILE_NAME, "test");
     press(IN_DOWN, 3);
     ui_input(IN_OK);
-    press(IN_DOWN, 2);
+    for (int i = 0; i < 12 && strcmp(((const menu_t *)ui_top()->ctx)->items[((const menu_t *)ui_top()->ctx)->sel].label, "I/O test") != 0; i++) {
+        ui_input(IN_DOWN);
+    }
     ui_input(IN_OK);
     CHECK(strcmp(top(), "IOTestView") == 0, "I/O test, got %s", top());
     ui_input(IN_BACK);

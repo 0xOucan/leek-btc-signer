@@ -48,14 +48,14 @@ FLOWS = {
         (["BACK"], "LoadSeedView"),
         (["BACK"], "MainMenuView"),
         (["DOWN", "DOWN", "OK"], "SettingsMenuView"),
-        (["DOWN", "DOWN", "DOWN", "OK"], "VersionView"),
+        (["DOWN"] * 6 + ["OK"], "VersionView"),
         (["OK"], "SettingsMenuView"),
         (["HOLD"], "MainMenuView"),
     ],
     "io-test": [
         ([], "MainMenuView"),
         (["DOWN", "DOWN", "DOWN", "OK"], "SettingsMenuView"),
-        (["DOWN", "DOWN", "OK"], "IOTestView"),
+        (["DOWN"] * 4 + ["OK"], "IOTestView"),
         (["UP", "DOWN", "OK", "BACK"], "IOTestView"),   # counted, not obeyed
         (["HOLD"], "MainMenuView"),
     ],
@@ -172,6 +172,26 @@ FLOWS = {
         ([bytes(16)], "SeedFinalizeView", "fingerprint 73c5da0a"),
         (["OK"], "SeedAddressVerificationSuccessView",
          ("prefix", "verified 0 receive bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")),
+        (["OK"], "MainMenuView"),
+    ],
+    # SeedSigner's settings menus on the firmware: Advanced, then Bitcoin
+    # network set to Testnet; choosing it again returns to the menu.
+    "settings-network": [
+        (["DOWN", "DOWN", "DOWN", "OK"], "SettingsMenuView"),
+        (["DOWN", "DOWN", "DOWN", "OK"], "SettingsMenuView"),
+        (["OK"], "SettingsEntryUpdateSelectionView"),
+        (["DOWN", "OK"], "SettingsEntryUpdateSelectionView", "setting network=T"),
+        (["OK"], "SettingsMenuView"),
+        (["HOLD"], "MainMenuView"),
+    ],
+    # SeedSigner's test_settingsqr: its Total_noob_mode SettingsQR. With no
+    # microSD card, persistent=E is applied as Disabled.
+    "settingsqr": [
+        (["OK"], "ScanView"),
+        (["settings::v1 name=Total_noob_mode persistent=E xpub_qr=urca,sta denom=thr network=M "
+          "qr_density=M sigs=ss scripts=nat xpub_details=E passphrase=E camera=0 compact_seedqr=E "
+          "bip85=D priv_warn=E dire_warn=E partners=E"], "SettingsIngestSettingsQRView",
+         "settingsqr applied 15"),
         (["OK"], "MainMenuView"),
     ],
     "scan-invalid": [

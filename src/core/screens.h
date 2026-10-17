@@ -8,6 +8,8 @@
 
 extern const screen_t SCREEN_HOME;
 extern const screen_t SCREEN_LOAD_SEED;   /* LoadSeedView */
+extern const screen_t SCREEN_IO_TEST;     /* IOTestView */
+extern const screen_t SCREEN_VERSION;     /* VersionView */
 /* SeedSigner's ScanView, ScanPSBTView and ScanSeedQRView. */
 extern const screen_t SCREEN_SCAN, SCREEN_SCAN_PSBT, SCREEN_SCAN_SEED;
 extern const screen_t SCREEN_SCAN_CONFIRM_SEEDQR;

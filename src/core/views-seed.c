@@ -633,7 +633,7 @@ static void words_render(const screen_t *sc)
     if (s == NULL) {
         return;
     }
-    char title[32];
+    char title[48];
     if (words.child) {
         snprintf(title, sizeof title, "Child #%u: %d/%d", (unsigned)words.child_index, words.page + 1,
                  words_pages());

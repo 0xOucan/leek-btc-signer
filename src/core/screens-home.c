@@ -13,6 +13,7 @@
 #include "views-address.h"
 #include "views-psbt.h"
 #include "views-seed.h"
+#include "views-settings.h"
 #include "views-tools.h"
 
 /* ---- Not built yet ---------------------------------------------------- */
@@ -23,8 +24,6 @@
 
 PENDING(CAMERA_SEED_PENDING, "New seed",
         "Camera entropy arrives with T52.");
-PENDING(ADVANCED_PENDING, "Advanced", "Settings arrive with T41.");
-PENDING(HARDWARE_PENDING, "Hardware", "Settings arrive with T41.");
 
 /* ---- I/O test --------------------------------------------------------- */
 
@@ -83,7 +82,7 @@ static bool io_input(const screen_t *s, input_ev_t ev)
     return true;
 }
 
-static const screen_t IO_TEST = {
+const screen_t SCREEN_IO_TEST = {
     .name = "IOTestView", .enter = io_enter, .render = io_render, .input = io_input,
 };
 
@@ -91,7 +90,7 @@ static const screen_t IO_TEST = {
 
 static char version_text[160] = "Unknown";
 static const message_t version_msg = { "Version", version_text };
-static const screen_t VERSION = SCREEN_MESSAGE("VersionView", version_msg);
+const screen_t SCREEN_VERSION = SCREEN_MESSAGE("VersionView", version_msg);
 
 void screens_set_version(const char *version, const char *board,
                          const char *profile, const char *image)
@@ -126,20 +125,12 @@ static const menu_item_t load_items[] = {
 static menu_t load_menu = { "Load A Seed", load_items, 4, 0, 0 };
 const screen_t SCREEN_LOAD_SEED = SCREEN_MENU("LoadSeedView", load_menu);
 
-static const menu_item_t settings_items[] = {
-    { "Advanced", &ADVANCED_PENDING, NULL },
-    { "Hardware", &HARDWARE_PENDING, NULL },
-    { "I/O test", &IO_TEST, NULL },
-    { "Version", &VERSION, NULL },
-};
-static menu_t settings_menu = { "Settings", settings_items, 4, 0, 0 };
-static const screen_t SETTINGS = SCREEN_MENU("SettingsMenuView", settings_menu);
 
 static const menu_item_t home_items[] = {
     { "Scan", &SCREEN_SCAN, NULL },
     { "Seeds", NULL, SeedsMenuView },
     { "Tools", &TOOLS, NULL },
-    { "Settings", &SETTINGS, NULL },
+    { "Settings", &SCREEN_SETTINGS, NULL },
 };
 static menu_t home_menu = { "Home", home_items, 4, 0, 0 };
 

@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 
 #include "screens.h"
+#include "settings.h"
 #include "shot.h"
 #include "ui.h"
 
@@ -60,6 +61,7 @@ int main(int argc, char **argv)
     snprintf(dir, sizeof dir, "%s", argc > 1 ? argv[1] : "build/shots/" GFX_PROFILE_NAME);
     mkdir(dir, 0755);
     screens_set_version("dev", "S3CAM", GFX_PROFILE_NAME, "sim");
+    settings_reset();
     ui_init(&SCREEN_HOME);
     walk(0);
     printf("%d screenshots in %s\n", n, dir);

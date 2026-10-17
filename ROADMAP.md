@@ -251,6 +251,7 @@ on the host and in QEMU.
 | T51 | Done, single sig | `views-tools.c`: SeedSigner's four address explorer views, entered from the Tools menu or a seed's options, with a seed loaded mid-flow resuming it (`resume_main_flow`). `test_tools_flows` ports `test_flows_tools.py`'s explorer cases, all four BACK scenarios included, and checks 48 address lists SeedSigner's own explorer made (960 addresses: 2 seeds, 3 networks, 4 script types, receive and change, two pages). `qemu-flow.py address-explorer` shows BIP-84's first address on the Xtensa image. Wallet descriptors (multisig) and custom derivations wait for T47 |
 | T37 | Done except the camera | SeedSigner's backup test (four views: every word asked once in random order, the real word among three decoys drawn from the platform RNG) and SeedQR transcription (nine views: format, warning, the whole code, zone by zone A-1 to F-6, and a confirming scan with its three outcomes). `test_seed_flows` ports `test_transcribe_seedqr_and_verify` and reads the panel back with quirc: standard and compact, 12 and 24 words, all five profiles, each is the seed's own SeedQR. `qemu-flow.py seedqr-transcribe` on the Xtensa image. Scanning the paper copy needs the camera (T9) |
 | T40 | Done, single sig | `views-address.c`: SeedSigner's six address verification views. A scanned address is sorted by type (nested segwit asks single or multi; a P2WSH address is multisig and waits for T47), the seed is chosen or loaded mid-flow, and the search runs on the screen's tick, receive and change, with Skip 10 and Cancel. `test_tools_flows` ports `test__verify_address__singlesig__flow` and finds 144 addresses from SeedSigner's own explorer lists at their index and branch; `qemu-flow.py verify-address` verifies BIP-84's first address on the Xtensa image |
+| T41 | Done, in RAM | `settings.c` ports SeedSigner's SettingsDefinition (all 24 entries, compared field by field with SeedSigner's own `to_dict()`) and `parse_settingsqr` (135 parses as SeedSigner makes them, its exceptions included); `views-settings.c` the six settings views, the menus built from that table. `test_settings_flows` ports `test_flows_settings.py` and chooses every option of every setting through its screen; `qemu-flow.py settings-network` and `settingsqr` on the Xtensa image. Persistence waits for the vault (Phase 5): until then the device is SeedSigner OS with no microSD card |
 | Found by QEMU | Fixed | The Scan screen sized its PSBT buffer to its whole arena, which a board short of RAM could not give; it is now bounded by the scan (`qr_decoder_psbt_max`), checked against every recorded PSBT |
 
 ### 2026-10-17: Phase 4 begins, measured in SeedSigner views
@@ -400,4 +401,22 @@ module (`keypad.c`), with an OK key for entries of no fixed length.
 and checks them word for word on screen, on five profiles. One deliberate
 difference: SeedSigner raises on an empty index; here it is an invalid
 index like any other. 80 of 109 views.
+
+### 2026-10-17: Settings
+
+SeedSigner's settings, from its own definition: `gen_settings_vectors.py`
+dumps every SettingsEntry and records every SettingsQR SeedSigner parses
+(its tests', and generated ones for every option and for malformed input),
+as SeedSigner OS has them with no microSD card, which is this device's
+situation. `settings.c` carries the same 24 entries and parses SettingsQR
+with SeedSigner's quirks: its IndexError on a bare header, its TypeError on
+the hidden free-entry setting, a repeated key keeping its first place.
+`views-settings.c` builds the menus from the table: Settings, Advanced and
+Hardware list exactly what SeedSigner lists at each level; a single select
+sets and stays, choosing the set option returns; a multiselect toggles and
+refuses to be left empty. Settings that describe SeedSigner's own hardware
+(display type, camera rotation, microSD notifications) are kept so its
+SettingsQR codes apply in full, and change nothing on this board yet. The
+setting's name is the screen's title, where SeedSigner shows "Settings",
+so the options fit a small panel. 86 of 109 views.
 

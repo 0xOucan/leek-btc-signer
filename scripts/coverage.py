@@ -44,8 +44,16 @@ DONE = {
     "ErrorView": "status screens: sim/test_screens.c; Wrong QR Type in qemu-flow",
     "LoadSeedView": "SeedSigner's menu with Electrum off (its default): test_seed_flows.c; qemu-flow",
     "ToolsMenuView": "SeedSigner's five entries: qemu-flow home-menus",
-    "IOTestView": "qemu-flow io-test",
+    "IOTestView": "qemu-flow io-test; test_io_test: test_settings_flows.c",
     "VersionView": "qemu-flow home-menus",
+    # Settings: SeedSigner's SettingsDefinition and SettingsQR, from its own
+    # code (gen_settings_vectors.py); test_flows_settings.py ported
+    "SettingsMenuView": "each level lists SeedSigner's settings in order: test_settings_flows.c; qemu-flow settings-network",
+    "SettingsEntryUpdateSelectionView": "every option of every setting, 54 in all: test_settings_flows.c; qemu-flow settings-network",
+    "SettingsSelectionRequiredWarningView": "test_multiselect: test_settings_flows.c",
+    "SettingsIngestSettingsQRView": "135 SettingsQR parses as SeedSigner's (test_settings.c); test_settingsqr: test_settings_flows.c; qemu-flow settingsqr",
+    "LocaleSelectionView": "English, the one language: test_settings_flows.c",
+    "DonateView": "test_donate: test_settings_flows.c",
     # Scanning
     "ScanView": "sim/test_scan.c (every recorded scan); qemu-flow scan-*, seed-lifecycle",
     "ScanSeedQRView": "sim/test_scan.c; qemu-flow scan-seedqr-wrong-type",

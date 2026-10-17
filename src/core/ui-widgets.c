@@ -47,9 +47,21 @@ static void round_corners(int x, int y, int w, int h)
     }
 }
 
+static void draw_list(int y0, int rows, const char *const *labels, int n, int sel, int *top);
+
 void ui_draw_list(const char *const *labels, int n, int sel, int *top)
 {
-    const int rows = theme_rows();
+    draw_list(THEME.row_y0, theme_rows(), labels, n, sel, top);
+}
+
+void ui_draw_list_from(int y0, const char *const *labels, int n, int sel, int *top)
+{
+    int rows = (GFX_H - y0) / THEME.row_h;
+    draw_list(y0, rows < 1 ? 1 : rows, labels, n, sel, top);
+}
+
+static void draw_list(int y0, int rows, const char *const *labels, int n, int sel, int *top)
+{
     if (sel < *top) {
         *top = sel;
     }
@@ -70,7 +82,7 @@ void ui_draw_list(const char *const *labels, int n, int sel, int *top)
     for (int i = 0; i < rows && *top + i < n; i++) {
         const int idx = *top + i;
         const bool on = idx == sel;
-        const int y = THEME.row_y0 + i * THEME.row_h;
+        const int y = y0 + i * THEME.row_h;
         int x, w;
 
         if (THEME.row_style == ROW_BUTTON) {
@@ -100,7 +112,7 @@ void ui_draw_list(const char *const *labels, int n, int sel, int *top)
     }
 
     if (more_above) {
-        scroll_mark(GFX_W - 3, THEME.row_y0 + 1, true);
+        scroll_mark(GFX_W - 3, y0 + 1, true);
     }
     if (more_below) {
         scroll_mark(GFX_W - 3, GFX_H - 4, false);

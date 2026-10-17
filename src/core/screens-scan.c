@@ -29,6 +29,7 @@
 #include "seed-storage.h"
 #include "settings.h"
 #include "views-address.h"
+#include "views-settings.h"
 #include "views-psbt.h"
 #include "views-seed.h"
 #include "theme.h"
@@ -172,9 +173,16 @@ static route_t describe(void)
         return ROUTE_DONE;
     }
     if (t == QR_TYPE_SETTINGS) {
-        result("Settings", "SettingsQR received.\n\nApplying it arrives with T41.");
-        result_view("NotYetImplementedView");
-        ui_note("settings");
+        const char *text;
+        size_t len;
+        if (qr_decoder_settings(scan.dec, &text, &len)) {
+            ui_note("settings");
+            /* SettingsIngestSettingsQRView, in this screen's place. */
+            settings_scanned(text, len);
+            return ROUTE_DONE;
+        }
+        result("Error", "The SettingsQR could not be read.");
+        result_view("ErrorView");
         return ROUTE_RESULT;
     }
     if (t == QR_TYPE_SIGN_MESSAGE) {

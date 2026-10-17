@@ -34,6 +34,9 @@ struct screen {
        popped (BACK, HOLD, going home): SeedSigner runs a View again on the
        way back, and MainMenuView then drops the flow in progress. */
     void (*resume)(const screen_t *s);
+    /* The label OK would choose, for screens that draw their own lists
+       (ui_selected_label). Optional. */
+    const char *(*selected_label)(const screen_t *s);
     void *ctx;
 };
 
@@ -86,6 +89,8 @@ void ui_set_hold_handler(void (*fn)(void));
 void ui_draw_title(const char *title);
 /* Draw `n` labels as a list with `sel` highlighted, scrolling `*top`. */
 void ui_draw_list(const char *const *labels, int n, int sel, int *top);
+/* The same, from row y0 (below text drawn above the list). */
+void ui_draw_list_from(int y0, const char *const *labels, int n, int sel, int *top);
 /* Word-wrapped text from y; returns the y below the last line. */
 int ui_draw_wrapped(int y, const char *text, gfx_color_t c);
 
@@ -97,7 +102,7 @@ typedef struct {
     void (*action)(void);       /* or this is called instead */
 } menu_item_t;
 
-#define MENU_MAX_ITEMS 16
+#define MENU_MAX_ITEMS 32
 
 typedef struct {
     const char *title;

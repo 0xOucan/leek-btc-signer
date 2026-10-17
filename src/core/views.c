@@ -324,5 +324,5 @@ const char *ui_selected_label(void)
         const menu_t *m = s->ctx;
         return m->items[m->sel].label;
     }
-    return NULL;
+    return s->selected_label ? s->selected_label(s) : NULL;
 }

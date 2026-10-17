@@ -7,7 +7,7 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**80 of 109 views: 73.4%.**
+**86 of 109 views: 78.9%.**
 
 ## System: 4 of 12
 
@@ -134,17 +134,17 @@ writes this page and the README chart.
 | `ToolsAddressExplorerAddressListView` | ✅ | 48 lists, 960 addresses as SeedSigner's, pages and BACK: test_tools_flows.c; qemu-flow address-explorer |
 | `ToolsAddressExplorerAddressView` | ✅ | returns to the list at the address: test_tools_flows.c; qemu-flow address-explorer |
 
-## Settings: 2 of 8
+## Settings: 8 of 8
 
 | View | Done | Evidence |
 |---|---|---|
-| `SettingsMenuView` |  |  |
-| `LocaleSelectionView` |  |  |
-| `SettingsEntryUpdateSelectionView` |  |  |
-| `SettingsSelectionRequiredWarningView` |  |  |
-| `SettingsIngestSettingsQRView` |  |  |
-| `IOTestView` | ✅ | qemu-flow io-test |
-| `DonateView` |  |  |
+| `SettingsMenuView` | ✅ | each level lists SeedSigner's settings in order: test_settings_flows.c; qemu-flow settings-network |
+| `LocaleSelectionView` | ✅ | English, the one language: test_settings_flows.c |
+| `SettingsEntryUpdateSelectionView` | ✅ | every option of every setting, 54 in all: test_settings_flows.c; qemu-flow settings-network |
+| `SettingsSelectionRequiredWarningView` | ✅ | test_multiselect: test_settings_flows.c |
+| `SettingsIngestSettingsQRView` | ✅ | 135 SettingsQR parses as SeedSigner's (test_settings.c); test_settingsqr: test_settings_flows.c; qemu-flow settingsqr |
+| `IOTestView` | ✅ | qemu-flow io-test; test_io_test: test_settings_flows.c |
+| `DonateView` | ✅ | test_donate: test_settings_flows.c |
 | `VersionView` | ✅ | qemu-flow home-menus |
 
 ## Splash: 0 of 1

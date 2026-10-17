@@ -17,6 +17,7 @@
 #include "build-info-sim.h"
 #include "input.h"
 #include "screens.h"
+#include "settings.h"
 #include "shot.h"
 #include "ui.h"
 
@@ -46,6 +47,7 @@ int main(void)
     }
 
     screens_set_version(LBS_SIM_VERSION, "desktop", GFX_PROFILE_NAME, "sim");
+    settings_reset();
     ui_init(&SCREEN_HOME);
 
     /* Only BACK needs the state machine; the rest map straight through. */
