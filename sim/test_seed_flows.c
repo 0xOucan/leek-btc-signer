@@ -529,6 +529,60 @@ static void test_bip85_flow(void)
     }
 }
 
+/* tests/test_flows_seed.py: test_export_xpub_custom_derivation_flow */
+static void test_export_xpub_custom_derivation_flow(void)
+{
+    printf("== test_export_xpub_custom_derivation_flow\n");
+    fresh();
+    notes_reset();
+    load_blush();
+    for (int t = 0; t < SCRIPT_COUNT; t++) {
+        SETTINGS.script_types[t] = t == SCRIPT_NAT || t == SCRIPT_NES || t == SCRIPT_CUSTOM;
+    }
+    for (int f = 0; f < XPUB_QR_COUNT; f++) SETTINGS.xpub_qr_format[f] = true;
+    SeedOptionsView(0);
+    choose("Export xpub");
+    STEP("SeedExportXpubSigTypeView");
+    choose("Single Sig");
+    STEP("SeedExportXpubScriptTypeView");
+    choose("Custom Derivation");
+    STEP("SeedExportXpubCustomDerivationView");
+    CHECK(strcmp(views_keypad_text(), "m/") == 0, "starts from %s", views_keypad_text());
+    keypad("/'0123456789", "0'/0'");
+    keypad_to(13);      /* OK */
+    key(IN_OK);
+    STEP("SeedExportXpubQRFormatView");
+    choose("Specter legacy");
+    STEP("SeedExportXpubWarningView");
+    choose("I understand");
+    STEP("SeedExportXpubDetailsView");
+    CHECK(noted("custom m/0'/0'"), "the path typed");
+    seed_t s;
+    seed_from_mnemonic(&s, "blush twice taste dawn feed second opinion lazy thumb play neglect impact", "");
+    char xpub[120], want[160];
+    btc_xpub(s.bytes, sizeof s.bytes, "m/0'/0'", BTC_NET_MAIN, btc_slip132_version("m/0'/0'", BTC_NET_MAIN), xpub,
+             sizeof xpub);
+    seed_clear(&s);
+    snprintf(want, sizeof want, "xpub m/0'/0' %s", xpub);
+    CHECK(noted(want), "no \"%s\"", want);
+    choose("Export Xpub");
+    STEP("SeedExportXpubQRDisplayView");
+    key(IN_OK);
+    STEP("MainMenuView");
+
+    /* A path that does not derive: SeedSigner's get_xpub raises. */
+    SeedOptionsView(0);
+    choose("Export xpub");
+    choose("Single Sig");
+    choose("Custom Derivation");
+    keypad("/'0123456789", "''");
+    keypad_to(13);
+    key(IN_OK);
+    choose("Static");
+    choose("I understand");
+    STEP("UnhandledExceptionView");
+}
+
 int main(void)
 {
     btc_init(rand_fill);
@@ -545,6 +599,7 @@ int main(void)
     test_transcribe_every_format();
     test_transcribe_seedqr_and_verify();
     test_bip85_flow();
+    test_export_xpub_custom_derivation_flow();
     fresh();
     storage_wipe_all();
     return CHECK_DONE("test_seed_flows");

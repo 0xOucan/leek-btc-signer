@@ -452,3 +452,14 @@ built on SeedSigner. ScanPSBTView, already tested, is counted. 98 of 109
 views; the eleven left need multisig descriptors (T47), Electrum seeds, a
 custom derivation entry, or the board (camera, microSD).
 
+### 2026-10-17: Custom derivation paths
+
+SeedExportXpubCustomDerivationView: a path typed on SeedSigner's keys
+(`/'0123456789`) from "m/", then the xpub export at that path, whose QR
+formats were already checked against SeedSigner for custom paths. A path
+that does not derive raises in SeedSigner, so it shows UnhandledExceptionView;
+in the address explorer a custom path shows its address type and then, as
+SeedSigner's list does, "Custom Derivation address explorer not yet
+implemented". `test_seed_flows` ports `test_export_xpub_custom_derivation_flow`.
+99 of 109 views.
+

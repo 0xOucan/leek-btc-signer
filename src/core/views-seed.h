@@ -38,6 +38,8 @@ void SeedTranscribeSeedQRFormatView(int seed);
  * for anything that is not one. Called by the scan screen. */
 void transcribe_confirm_scanned(const uint16_t *words, size_t n);
 void SeedExportXpubSigTypeView(int seed);
+/* SeedExportXpubCustomDerivationView: `done` gets the path typed. */
+void SeedExportXpubCustomDerivationView(void (*done)(const char *path));
 
 /* For the host flow tests, which press keys against the entry state. */
 MnemonicEntry *views_entry_state(void);

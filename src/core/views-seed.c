@@ -805,9 +805,18 @@ static void details_select(int i)
 
 static void SeedExportXpubDetailsView(void)
 {
-    if (!btc_standard_path(SETTINGS.network, xp.sig, to_btc_script(xp.script), xp.path, sizeof xp.path)) {
+    if (xp.script != SCRIPT_CUSTOM &&
+        !btc_standard_path(SETTINGS.network, xp.sig, to_btc_script(xp.script), xp.path, sizeof xp.path)) {
         not_yet("SeedExportXpubDetailsView for this script type");
         return;
+    }
+    {
+        /* A typed path that does not derive: SeedSigner's get_xpub raises. */
+        char probe[120];
+        if (!btc_xpub(storage_seed(xp.seed)->bytes, 64, xp.path, SETTINGS.network, 0, probe, sizeof probe)) {
+            UnhandledExceptionView("ValueError", "seed.py, get_xpub", xp.path);
+            return;
+        }
     }
     if (!SETTINGS.xpub_details) {
         SeedExportXpubQRDisplayView();
@@ -875,11 +884,28 @@ static void SeedExportXpubQRFormatView(void)
 
 static script_opt_t script_map[SCRIPT_COUNT];
 
+/* SeedExportXpubCustomDerivationView's result: the path typed. */
+static void custom_done(const char *path)
+{
+    snprintf(xp.path, sizeof xp.path, "%s", path);
+    ui_note("custom %s", xp.path);
+    SeedExportXpubQRFormatView();
+}
+
+/* SeedExportXpubCustomDerivationView: a path typed on SeedSigner's keys,
+   from "m/". */
+void SeedExportXpubCustomDerivationView(void (*done)(const char *path))
+{
+    const keypad_spec_t k = { "SeedExportXpubCustomDerivationView", "Derivation Path", "/'0123456789", NULL, 0,
+                              done, "m/" };
+    keypad_open(&k);
+}
+
 static void script_select(int i)
 {
     xp.script = script_map[i];
     if (xp.script == SCRIPT_CUSTOM) {
-        not_yet("SeedExportXpubCustomDerivationView");
+        SeedExportXpubCustomDerivationView(custom_done);
         return;
     }
     SeedExportXpubQRFormatView();
@@ -1444,7 +1470,7 @@ static void bip85_index_done(const char *text);
 static void open_index_keypad(void)
 {
     const keypad_spec_t k = { "SeedBIP85SelectChildIndexView", "BIP-85 Index", "0123456789", NULL, 0,
-                              bip85_index_done };
+                              bip85_index_done, NULL };
     keypad_open(&k);
 }
 

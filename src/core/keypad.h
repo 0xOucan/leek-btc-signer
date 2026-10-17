@@ -15,6 +15,7 @@ typedef struct {
     const char *hint;       /* a line under the keys, or NULL */
     size_t total;           /* finish after this many; 0: an OK key finishes */
     void (*done)(const char *text);
+    const char *initial;    /* the entry to start from ("m/"), or NULL */
 } keypad_spec_t;
 
 void keypad_open(const keypad_spec_t *spec);

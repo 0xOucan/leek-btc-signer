@@ -91,7 +91,7 @@ static void dice_done(const char *rolls)
 static void dice_length_select(int i)
 {
     const keypad_spec_t k = { "ToolsDiceEntropyEntryView", "Dice Roll", "123456", NULL,
-                              i == 0 ? DICE_ROLLS_12 : DICE_ROLLS_24, dice_done };
+                              i == 0 ? DICE_ROLLS_12 : DICE_ROLLS_24, dice_done, NULL };
     keypad_open(&k);
 }
 
@@ -216,7 +216,7 @@ static void finalize_prompt_select(int i)
     if (i == 0) {
         /* ToolsCalcFinalWordCoinFlipsView */
         const keypad_spec_t k = { "ToolsCalcFinalWordCoinFlipsView", "Coin Flip", "10",
-                                  "Heads = 1, Tails = 0", bits, coin_flips_done };
+                                  "Heads = 1, Tails = 0", bits, coin_flips_done, NULL };
         keypad_open(&k);
     } else if (i == 1) {
         SeedMnemonicEntryFinalWordView();
@@ -392,6 +392,12 @@ static void ToolsAddressExplorerAddressListView(bool is_change, int start, int s
 
 static void address_type_select(int i)
 {
+    if (ex.script == SCRIPT_CUSTOM) {
+        /* As SeedSigner's list does for a custom path. */
+        UnhandledExceptionView("Exception", "tools_views.py, ToolsAddressExplorerAddressListView",
+                               "Custom Derivation address explorer not yet implemented");
+        return;
+    }
     ToolsAddressExplorerAddressListView(i == 1, 0, 0, false);
 }
 
@@ -408,9 +414,16 @@ static void address_type_back(void)
 static void ToolsAddressExplorerAddressTypeView(int seed, script_opt_t script, bool replace)
 {
     const seed_t *s = storage_seed(seed);
-    if (s == NULL || ex_btc_script(script) == BTC_SCRIPT_INVALID ||
-        !btc_standard_path(SETTINGS.network, BTC_SIG_SINGLE, ex_btc_script(script), ex.path, sizeof ex.path) ||
-        !btc_xpub(s->bytes, sizeof s->bytes, ex.path, SETTINGS.network, 0, ex.xpub, sizeof ex.xpub)) {
+    if (s == NULL) {
+        return;
+    }
+    if (script != SCRIPT_CUSTOM &&
+        (ex_btc_script(script) == BTC_SCRIPT_INVALID ||
+         !btc_standard_path(SETTINGS.network, BTC_SIG_SINGLE, ex_btc_script(script), ex.path, sizeof ex.path))) {
+        return;
+    }
+    if (!btc_xpub(s->bytes, sizeof s->bytes, ex.path, SETTINGS.network, 0, ex.xpub, sizeof ex.xpub)) {
+        UnhandledExceptionView("ValueError", "seed.py, get_xpub", ex.path);
         return;
     }
     ex.seed = seed;
@@ -433,10 +446,19 @@ static void ToolsAddressExplorerAddressTypeView(int seed, script_opt_t script, b
    title, and on to the address type rather than the QR format. */
 static script_opt_t ex_script_map[SCRIPT_COUNT];
 
+static int ex_custom_seed;
+
+static void ex_custom_done(const char *path)
+{
+    snprintf(ex.path, sizeof ex.path, "%s", path);
+    ToolsAddressExplorerAddressTypeView(ex_custom_seed, SCRIPT_CUSTOM, false);
+}
+
 static void ex_script_select(int i)
 {
     if (ex_script_map[i] == SCRIPT_CUSTOM) {
-        not_yet("SeedExportXpubCustomDerivationView");
+        ex_custom_seed = view_arg();
+        SeedExportXpubCustomDerivationView(ex_custom_done);
         return;
     }
     ToolsAddressExplorerAddressTypeView(view_arg(), ex_script_map[i], false);

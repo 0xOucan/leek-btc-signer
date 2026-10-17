@@ -119,6 +119,10 @@ static void pad_resume(const screen_t *s)
 {
     (void)s;
     pad_clear();
+    if (pad.spec.initial) {
+        snprintf(pad.text, sizeof pad.text, "%s", pad.spec.initial);
+        pad.len = strlen(pad.text);
+    }
 }
 
 static void pad_leave(const screen_t *s)
@@ -138,6 +142,10 @@ void keypad_open(const keypad_spec_t *spec)
     pad.spec = *spec;
     if (pad.spec.total > PAD_MAX) {
         pad.spec.total = PAD_MAX;
+    }
+    if (spec->initial) {
+        snprintf(pad.text, sizeof pad.text, "%s", spec->initial);
+        pad.len = strlen(pad.text);
     }
     pad.sel = 0;
     PAD.name = spec->name;

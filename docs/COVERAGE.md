@@ -7,7 +7,7 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**98 of 109 views: 89.9%.**
+**99 of 109 views: 90.8%.**
 
 ## System: 10 of 12
 
@@ -37,7 +37,7 @@ writes this page and the README chart.
 | `ScanAddressView` | ✅ | refuses other codes: test_tools_flows.c; qemu-flow verify-address |
 | `ScanInvalidQRTypeView` | ✅ | sim/test_scan.c; qemu-flow scan-invalid |
 
-## Seeds: 44 of 48
+## Seeds: 45 of 48
 
 | View | Done | Evidence |
 |---|---|---|
@@ -56,7 +56,7 @@ writes this page and the README chart.
 | `SeedBackupView` | ✅ | test_seed_flows.c |
 | `SeedExportXpubSigTypeView` | ✅ | test_export_xpub_standard_flow, all 21 combinations: test_seed_flows.c |
 | `SeedExportXpubScriptTypeView` | ✅ | test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
-| `SeedExportXpubCustomDerivationView` |  |  |
+| `SeedExportXpubCustomDerivationView` | ✅ | test_export_xpub_custom_derivation_flow; the explorer's custom path: test_seed_flows.c, test_tools_flows.c |
 | `SeedExportXpubQRFormatView` | ✅ | test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
 | `SeedExportXpubWarningView` | ✅ | test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
 | `SeedExportXpubDetailsView` | ✅ | BIP-84 zpub on the firmware: qemu-flow seed-lifecycle; test_seed_flows.c |

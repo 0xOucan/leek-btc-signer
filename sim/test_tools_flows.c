@@ -377,6 +377,30 @@ static void test_every_address_list(void)
     printf("   %u lists, %u addresses as SeedSigner's\n", lists, addrs);
 }
 
+/* A custom path: SeedSigner shows the address type, then its list raises. */
+static void test__address_explorer__custom_derivation(void)
+{
+    printf("== address explorer with a custom path\n");
+    fresh();
+    load_seed(ABANDON, "");
+    for (int t = 0; t < SCRIPT_COUNT; t++) SETTINGS.script_types[t] = t == SCRIPT_NAT || t == SCRIPT_CUSTOM;
+    choose("Tools");
+    choose("Address explorer");
+    choose_index(0);
+    STEP("SeedExportXpubScriptTypeView");
+    choose("Custom Derivation");
+    STEP("SeedExportXpubCustomDerivationView");
+    keypad("/'0123456789", "84'/0'/0'");
+    keypad_to(13);
+    key(IN_OK);
+    STEP("ToolsAddressExplorerAddressTypeView");
+    CHECK(noted("explorer 73c5da0a m/84'/0'/0'"), "the custom path: %s", last_note);
+    choose("Receive addresses");
+    STEP("UnhandledExceptionView");
+    choose("Back to Main Menu");
+    STEP("MainMenuView");
+}
+
 /* ---- Address verification ---------------------------------------------------- */
 
 /* Let SeedAddressVerificationView search, as its ticks would. */
@@ -529,6 +553,7 @@ int main(void)
     test__address_explorer__loadseed__sideflow();
     test__address_explorer__scan_wrong_qrtype__flow();
     test__address_explorer__back_button__flow();
+    test__address_explorer__custom_derivation();
     test_every_address_list();
     test__verify_address__singlesig__flow();
     test_verify_address_routes();

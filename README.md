@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  ██████████████████░░  98 of 109 views (90%)
+SeedSigner  ██████████████████░░  99 of 109 views (91%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)

@@ -81,6 +81,7 @@ DONE = {
     "SeedWordsView": "pages of four words, BACK pages back, on to the backup test: test_seed_flows.c",
     "SeedExportXpubSigTypeView": "test_export_xpub_standard_flow, all 21 combinations: test_seed_flows.c",
     "SeedExportXpubScriptTypeView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
+    "SeedExportXpubCustomDerivationView": "test_export_xpub_custom_derivation_flow; the explorer's custom path: test_seed_flows.c, test_tools_flows.c",
     "SeedExportXpubQRFormatView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
     "SeedExportXpubWarningView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
     "SeedExportXpubDetailsView": "BIP-84 zpub on the firmware: qemu-flow seed-lifecycle; test_seed_flows.c",
