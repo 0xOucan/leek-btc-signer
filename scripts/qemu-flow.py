@@ -162,6 +162,18 @@ FLOWS = {
         (["OK"], "SeedTranscribeSeedQRConfirmQRPromptView"),
         (["DOWN", "OK"], "SeedOptionsView"),
     ],
+    # Verify BIP-84's first address against abandon x11 about, loading the
+    # seed mid-flow: the search runs on the firmware's tick.
+    "verify-address": [
+        (["DOWN", "DOWN", "OK"], "ToolsMenuView"),
+        (["DOWN", "DOWN", "DOWN", "DOWN", "OK"], "ScanAddressView"),
+        (["bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"], "SeedSelectSeedView"),
+        (["OK"], "ScanView"),
+        ([bytes(16)], "SeedFinalizeView", "fingerprint 73c5da0a"),
+        (["OK"], "SeedAddressVerificationSuccessView",
+         ("prefix", "verified 0 receive bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")),
+        (["OK"], "MainMenuView"),
+    ],
     "scan-invalid": [
         (["OK"], "ScanView"),
         (["hello world"], "ScanInvalidQRTypeView", "invalid"),

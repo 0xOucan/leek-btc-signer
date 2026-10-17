@@ -7,7 +7,7 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**71 of 109 views: 65.1%.**
+**77 of 109 views: 70.6%.**
 
 ## System: 4 of 12
 
@@ -26,7 +26,7 @@ writes this page and the README chart.
 | `OptionDisabledView` |  |  |
 | `RemoveMicroSDWarningView` |  |  |
 
-## Scan: 3 of 6
+## Scan: 4 of 6
 
 | View | Done | Evidence |
 |---|---|---|
@@ -34,15 +34,15 @@ writes this page and the README chart.
 | `ScanPSBTView` |  |  |
 | `ScanSeedQRView` | ✅ | sim/test_scan.c; qemu-flow scan-seedqr-wrong-type |
 | `ScanWalletDescriptorView` |  |  |
-| `ScanAddressView` |  |  |
+| `ScanAddressView` | ✅ | refuses other codes: test_tools_flows.c; qemu-flow verify-address |
 | `ScanInvalidQRTypeView` | ✅ | sim/test_scan.c; qemu-flow scan-invalid |
 
-## Seeds: 32 of 48
+## Seeds: 37 of 48
 
 | View | Done | Evidence |
 |---|---|---|
 | `SeedsMenuView` | ✅ | test_seed_flows.c (redirect with no seeds, list with one); qemu-flow seed-lifecycle |
-| `SeedSelectSeedView` |  |  |
+| `SeedSelectSeedView` | ✅ | loaded seeds, a seed loaded mid-flow: test_tools_flows.c; qemu-flow verify-address |
 | `LoadSeedView` | ✅ | SeedSigner's menu with Electrum off (its default): test_seed_flows.c; qemu-flow |
 | `SeedMnemonicEntryView` | ✅ | test_mnemonic_entry_flow, 12 and 24 words typed key by key: test_seed_flows.c |
 | `SeedMnemonicInvalidView` | ✅ | test_invalid_mnemonic: test_seed_flows.c |
@@ -79,10 +79,10 @@ writes this page and the README chart.
 | `SeedTranscribeSeedQRConfirmWrongSeedView` | ✅ | test_transcribe_seedqr_and_verify: test_seed_flows.c |
 | `SeedTranscribeSeedQRConfirmInvalidQRView` | ✅ | unreadable and non-SeedQR codes: test_seed_flows.c |
 | `SeedTranscribeSeedQRConfirmSuccessView` | ✅ | test_transcribe_seedqr_and_verify: test_seed_flows.c |
-| `AddressVerificationStartView` |  |  |
-| `AddressVerificationSigTypeView` |  |  |
-| `SeedAddressVerificationView` |  |  |
-| `SeedAddressVerificationSuccessView` |  |  |
+| `AddressVerificationStartView` | ✅ | single sig, nested, P2WSH routes: test_tools_flows.c; qemu-flow verify-address |
+| `AddressVerificationSigTypeView` | ✅ | nested segwit, BACK: test_tools_flows.c |
+| `SeedAddressVerificationView` | ✅ | 144 addresses at SeedSigner's index and branch, Skip 10, Cancel: test_tools_flows.c; qemu-flow verify-address |
+| `SeedAddressVerificationSuccessView` | ✅ | test_tools_flows.c; qemu-flow verify-address |
 | `LoadMultisigWalletDescriptorView` |  |  |
 | `MultisigWalletDescriptorView` |  |  |
 | `SeedSignMessageStartView` |  |  |

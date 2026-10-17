@@ -22,6 +22,7 @@
 #include "theme.h"
 #include "btc-init.h"
 #include "qrcode.h"
+#include "views-address.h"
 #include "views-psbt.h"
 #include "views-tools.h"
 #include "views.h"
@@ -103,9 +104,9 @@ static void seed_options(int seed, bool fresh)
     if (fresh) {
         view_clear_history();   /* clear_history=True */
     }
-    /* A seed loaded mid-flow goes back to it (resume_main_flow), the
-       address explorer first, as SeedSigner checks it first. */
-    if (tools_explorer_resume(seed) || psbt_flow_resume(seed)) {
+    /* A seed loaded mid-flow goes back to it (resume_main_flow), in
+       SeedSigner's order: address verification, the explorer, a PSBT. */
+    if (address_verify_resume(seed) || tools_explorer_resume(seed) || psbt_flow_resume(seed)) {
         return;
     }
     view_push(&v);

@@ -28,6 +28,7 @@
 #include "secmem.h"
 #include "seed-storage.h"
 #include "settings.h"
+#include "views-address.h"
 #include "views-psbt.h"
 #include "views-seed.h"
 #include "theme.h"
@@ -36,7 +37,7 @@
 
 /* SCAN_CONFIRM is SeedTranscribeSeedQRConfirmScanView: any code ends it,
    and views-seed.c judges whether it is the SeedQR just transcribed. */
-typedef enum { SCAN_ANY, SCAN_PSBT, SCAN_SEED, SCAN_CONFIRM } scan_kind_t;
+typedef enum { SCAN_ANY, SCAN_PSBT, SCAN_SEED, SCAN_CONFIRM, SCAN_ADDRESS } scan_kind_t;
 
 /* Largest arena tried first: PSRAM on the board (ESP-IDF's malloc puts
    anything over 16 KB there); QEMU has none, so it falls back. */
@@ -82,7 +83,8 @@ static void result(const char *title, const char *fmt, ...)
 static bool kind_ok(qr_type_t t)
 {
     return scan.kind == SCAN_ANY || (scan.kind == SCAN_PSBT && qr_is_psbt(t)) ||
-           (scan.kind == SCAN_SEED && qr_is_seed(t));
+           (scan.kind == SCAN_SEED && qr_is_seed(t)) ||
+           (scan.kind == SCAN_ADDRESS && t == QR_TYPE_BITCOIN_ADDRESS);
 }
 
 typedef enum { ROUTE_RESULT, ROUTE_SEED, ROUTE_DONE } route_t;
@@ -95,7 +97,8 @@ static route_t describe(void)
     const qr_type_t t = scan.dec->type;
     if (!kind_ok(t)) {
         result("Error", "Wrong QR Type\n\nExpected a %s, received \"%s\" format.",
-               scan.kind == SCAN_PSBT ? "transaction" : "SeedQR", qr_type_name(t));
+               scan.kind == SCAN_PSBT ? "transaction" : scan.kind == SCAN_ADDRESS ? "an address QR" : "SeedQR",
+               qr_type_name(t));
         result_view("ErrorView");
         ui_note("wrong-type %s", qr_type_name(t));
         return ROUTE_RESULT;
@@ -163,10 +166,10 @@ static route_t describe(void)
         btc_script_t script;
         btc_net_t net;
         const char *a = qr_decoder_address(scan.dec, &script, &net);
-        result("Address", "%s\n\nVerifying it arrives with T40.", a);
-        result_view("NotYetImplementedView");
         ui_note("address %s %d %d", a, (int)script, (int)net);
-        return ROUTE_RESULT;
+        /* AddressVerificationStartView, in this screen's place. */
+        address_scanned(a, script, net);
+        return ROUTE_DONE;
     }
     if (t == QR_TYPE_SETTINGS) {
         result("Settings", "SettingsQR received.\n\nApplying it arrives with T41.");
@@ -238,7 +241,8 @@ static void scan_render(const screen_t *s)
 {
     (void)s;
     ui_draw_title(scan.kind == SCAN_PSBT ? "Scan PSBT" : scan.kind == SCAN_SEED ? "Scan SeedQR"
-                  : scan.kind == SCAN_CONFIRM ? "Confirm SeedQR" : "Scan");
+                  : scan.kind == SCAN_CONFIRM ? "Confirm SeedQR"
+                  : scan.kind == SCAN_ADDRESS ? "Verify Address" : "Scan");
     int y = THEME.top_h + THEME.pad + 2;
     if (scan.no_memory) {
         ui_draw_wrapped(y, "Not enough memory to scan.", C_WARN);
@@ -246,7 +250,8 @@ static void scan_render(const screen_t *s)
     }
     y = ui_draw_wrapped(y, scan.kind == SCAN_PSBT ? "Scan Transaction"
                            : scan.kind == SCAN_SEED ? "Scan SeedQR"
-                           : scan.kind == SCAN_CONFIRM ? "Scan your SeedQR" : "Scan a QR code", C_FG);
+                           : scan.kind == SCAN_CONFIRM ? "Scan your SeedQR"
+                           : scan.kind == SCAN_ADDRESS ? "Scan address QR" : "Scan a QR code", C_FG);
     if (scan.dec && scan.dec->type != QR_TYPE_NONE && scan.pct > 0) {
         /* SeedSigner's progress bar, under the text. */
         const int bar_y = GFX_H - THEME.line_h - 8;
@@ -329,6 +334,10 @@ const screen_t SCREEN_SCAN = {
 const screen_t SCREEN_SCAN_PSBT = {
     .name = "ScanPSBTView", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
     .tick = scan_tick, .ctx = (void *)(intptr_t)SCAN_PSBT,
+};
+const screen_t SCREEN_SCAN_ADDRESS = {
+    .name = "ScanAddressView", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
+    .tick = scan_tick, .ctx = (void *)(intptr_t)SCAN_ADDRESS,
 };
 const screen_t SCREEN_SCAN_CONFIRM_SEEDQR = {
     .name = "SeedTranscribeSeedQRConfirmScanView", .enter = scan_enter, .render = scan_render,

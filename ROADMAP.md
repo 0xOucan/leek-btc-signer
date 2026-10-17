@@ -250,6 +250,7 @@ on the host and in QEMU.
 | T35 | Done except camera entropy | `views-tools.c`: SeedSigner's dice views (50 or 99 rolls on a 1-6 keypad with DEL) and the five final-word calculator views (coin flips, a chosen word, or zeros, then the checksum word). SeedSigner has no flow tests for these, so `gen_tools_vectors.py` runs its own Views through its FlowTest harness and records what they compute; `test_tools_flows` matches all 12 dice and 18 final-word cases on five profiles. `qemu-flow.py dice-seed` makes a seed from 50 rolls on the Xtensa image. Camera entropy waits for the board (T9) |
 | T51 | Done, single sig | `views-tools.c`: SeedSigner's four address explorer views, entered from the Tools menu or a seed's options, with a seed loaded mid-flow resuming it (`resume_main_flow`). `test_tools_flows` ports `test_flows_tools.py`'s explorer cases, all four BACK scenarios included, and checks 48 address lists SeedSigner's own explorer made (960 addresses: 2 seeds, 3 networks, 4 script types, receive and change, two pages). `qemu-flow.py address-explorer` shows BIP-84's first address on the Xtensa image. Wallet descriptors (multisig) and custom derivations wait for T47 |
 | T37 | Done except the camera | SeedSigner's backup test (four views: every word asked once in random order, the real word among three decoys drawn from the platform RNG) and SeedQR transcription (nine views: format, warning, the whole code, zone by zone A-1 to F-6, and a confirming scan with its three outcomes). `test_seed_flows` ports `test_transcribe_seedqr_and_verify` and reads the panel back with quirc: standard and compact, 12 and 24 words, all five profiles, each is the seed's own SeedQR. `qemu-flow.py seedqr-transcribe` on the Xtensa image. Scanning the paper copy needs the camera (T9) |
+| T40 | Done, single sig | `views-address.c`: SeedSigner's six address verification views. A scanned address is sorted by type (nested segwit asks single or multi; a P2WSH address is multisig and waits for T47), the seed is chosen or loaded mid-flow, and the search runs on the screen's tick, receive and change, with Skip 10 and Cancel. `test_tools_flows` ports `test__verify_address__singlesig__flow` and finds 144 addresses from SeedSigner's own explorer lists at their index and branch; `qemu-flow.py verify-address` verifies BIP-84's first address on the Xtensa image |
 | Found by QEMU | Fixed | The Scan screen sized its PSBT buffer to its whole arena, which a board short of RAM could not give; it is now bounded by the scan (`qr_decoder_psbt_max`), checked against every recorded PSBT |
 
 ### 2026-10-17: Phase 4 begins, measured in SeedSigner views
@@ -375,3 +376,15 @@ heap the suites run in: free heap before the QR suites rose from 208 KB
 (largest block 139 KB) to 257 KB (188 KB). Note for the build: PlatformIO
 does not rebuild a component when only its compile definitions change, so
 such a change needs `pio run -t clean` on every image before `check.sh`.
+
+### 2026-10-17: Address verification
+
+Six views (`views-address.c`): scan an address from the Tools menu (or the
+main Scan), let its type decide single sig or multisig as SeedSigner does
+(asking only for nested segwit, which cannot tell), choose or load the
+seed, and search its receive and change addresses until one matches.
+SeedSigner searches in a background thread; here the search runs a couple of
+indexes per UI tick, so Skip 10 and Cancel stay live, and like SeedSigner's
+it has no upper bound. A seed loaded mid-flow resumes the search
+(`resume_main_flow`, checked first, as SeedSigner does). 77 of 109 views.
+

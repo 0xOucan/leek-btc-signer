@@ -50,6 +50,7 @@ DONE = {
     "ScanView": "sim/test_scan.c (every recorded scan); qemu-flow scan-*, seed-lifecycle",
     "ScanSeedQRView": "sim/test_scan.c; qemu-flow scan-seedqr-wrong-type",
     "ScanInvalidQRTypeView": "sim/test_scan.c; qemu-flow scan-invalid",
+    "ScanAddressView": "refuses other codes: test_tools_flows.c; qemu-flow verify-address",
     # Seeds: SeedSigner's tests/test_flows_seed.py, ported in sim/test_seed_flows.c
     "SeedsMenuView": "test_seed_flows.c (redirect with no seeds, list with one); qemu-flow seed-lifecycle",
     "SeedMnemonicEntryView": "test_mnemonic_entry_flow, 12 and 24 words typed key by key: test_seed_flows.c",
@@ -69,6 +70,13 @@ DONE = {
     "SeedExportXpubWarningView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
     "SeedExportXpubDetailsView": "BIP-84 zpub on the firmware: qemu-flow seed-lifecycle; test_seed_flows.c",
     "SeedExportXpubQRDisplayView": "parts identical to SeedSigner's (test_qr_encode.c); qemu-flow seed-lifecycle",
+    # Address verification: SeedSigner's test__verify_address__singlesig__flow,
+    # and 144 addresses from its explorer's lists found at their index
+    "AddressVerificationStartView": "single sig, nested, P2WSH routes: test_tools_flows.c; qemu-flow verify-address",
+    "AddressVerificationSigTypeView": "nested segwit, BACK: test_tools_flows.c",
+    "SeedSelectSeedView": "loaded seeds, a seed loaded mid-flow: test_tools_flows.c; qemu-flow verify-address",
+    "SeedAddressVerificationView": "144 addresses at SeedSigner's index and branch, Skip 10, Cancel: test_tools_flows.c; qemu-flow verify-address",
+    "SeedAddressVerificationSuccessView": "test_tools_flows.c; qemu-flow verify-address",
     # The backup test and SeedQR transcription
     "SeedWordsBackupTestPromptView": "verify and skip, loaded and pending seeds: test_seed_flows.c",
     "SeedWordsBackupTestView": "every word asked once, decoys, secure RNG: test_seed_flows.c",

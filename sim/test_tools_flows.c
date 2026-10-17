@@ -394,6 +394,145 @@ static void test_every_address_list(void)
     printf("   %u lists, %u addresses as SeedSigner's\n", lists, addrs);
 }
 
+/* ---- Address verification ---------------------------------------------------- */
+
+/* Let SeedAddressVerificationView search, as its ticks would. */
+static void search(void)
+{
+    for (int i = 0; i < 400 && strcmp(on(), "SeedAddressVerificationView") == 0; i++) {
+        ui_tick();
+        ui_render();
+    }
+}
+
+static void verify(const char *address)
+{
+    choose("Tools");
+    STEP("ToolsMenuView");
+    choose("Verify address");
+    STEP("ScanAddressView");
+    scan_text(address);
+}
+
+/* tests/test_flows_tools.py: test__verify_address__singlesig__flow */
+static void test__verify_address__singlesig__flow(void)
+{
+    printf("== test__verify_address__singlesig__flow\n");
+    static const struct { const char *addr; const char *want; } cases[] = {
+        /* Native segwit regtest receive address at index 6 */
+        { "bcrt1q4e9q5taxnsvc6m0uxv6h75mkzvnkxeqk6l90u2", "verified 6 receive" },
+        /* Taproot regtest change address at index 48 */
+        { "bcrt1pj5v8ean2hc5lh2djsgfx4j9uc0n67942ngv6q9r49qv88ex5mrwsn3u4f7", "verified 48 change" },
+    };
+    for (size_t i = 0; i < N(cases); i++) {
+        fresh();
+        notes_reset();
+        load_seed(ABANDON, "");
+        SETTINGS.network = BTC_NET_REGTEST;
+        verify(cases[i].addr);
+        STEP("SeedSelectSeedView");     /* AddressVerificationStartView redirected */
+        choose_index(0);
+        STEP("SeedAddressVerificationView");
+        search();
+        STEP("SeedAddressVerificationSuccessView");
+        char want[160];
+        snprintf(want, sizeof want, "%s %s", cases[i].want, cases[i].addr);
+        CHECK(noted(want), "no \"%s\" (last: %s)", want, last_note);
+        choose("OK");
+        STEP("MainMenuView");
+    }
+}
+
+static void test_verify_address_routes(void)
+{
+    printf("== verify address: seed loaded mid-flow, Skip 10, Cancel, wrong type, multisig\n");
+    /* No seed yet: load one by scanning, and the search resumes with it. */
+    fresh();
+    notes_reset();
+    verify("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu");
+    STEP("SeedSelectSeedView");
+    choose("Scan a seed");
+    STEP("ScanView");
+    scan_text("000000000000000000000000000000000000000000000003");
+    STEP("SeedFinalizeView");
+    choose("Done");
+    STEP("SeedAddressVerificationView");
+    search();
+    CHECK(noted("verified 0 receive bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"), "BIP-84's first address");
+
+    /* Skip 10 jumps the search ahead. */
+    fresh();
+    notes_reset();
+    load_seed(ABANDON, "");
+    const vec_tools_explorer_t *v = &VEC_TOOLS_EXPLORER[0];     /* abandon, mainnet, native, receive */
+    verify(v->addresses[15]);
+    choose_index(0);
+    STEP("SeedAddressVerificationView");
+    key(IN_OK);                         /* Skip 10, before any search */
+    search();
+    char want[160];
+    snprintf(want, sizeof want, "verified 15 receive %s", v->addresses[15]);
+    CHECK(noted("skip 10") && noted(want), "Skip 10 then index 15");
+
+    /* Cancel ends at the main menu. */
+    fresh();
+    load_seed(ABANDON, "");
+    verify(v->addresses[3]);
+    choose_index(0);
+    key(IN_DOWN);
+    key(IN_OK);
+    STEP("MainMenuView");
+
+    /* ScanAddressView refuses anything but an address. */
+    fresh();
+    verify("000000000000000000000000000000000000000000000003");
+    STEP("ErrorView");
+
+    /* A P2WSH address is multisig: it needs a wallet descriptor (T47). */
+    fresh();
+    verify("bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3");
+    STEP("NotYetImplementedView");
+
+    /* Nested segwit cannot say which it is: AddressVerificationSigTypeView. */
+    fresh();
+    load_seed(ABANDON, "");
+    verify(VEC_TOOLS_EXPLORER[2].addresses[0]);
+    STEP("AddressVerificationSigTypeView");
+    key(IN_BACK);
+    STEP("ToolsMenuView");
+}
+
+/* Every third-or-so address of every list SeedSigner's explorer made,
+   verified back to its index and branch. */
+static void test_verify_every_list(void)
+{
+    printf("== verify addresses from every list SeedSigner's explorer made\n");
+    static const int picks[] = { 0, 7, 19 };
+    unsigned done = 0;
+    for (size_t i = 0; i < N(VEC_TOOLS_EXPLORER); i++) {
+        const vec_tools_explorer_t *v = &VEC_TOOLS_EXPLORER[i];
+        for (size_t p = 0; p < N(picks); p++) {
+            fresh();
+            notes_reset();
+            load_seed(v->mnemonic, "");
+            verify(v->addresses[picks[p]]);
+            if (strcmp(v->script_type, "nes") == 0) {
+                STEP("AddressVerificationSigTypeView");
+                choose("Single Sig");
+            }
+            STEP("SeedSelectSeedView");
+            choose_index(0);
+            search();
+            char want[160];
+            snprintf(want, sizeof want, "verified %d %s %s", picks[p], v->is_change ? "change" : "receive",
+                     v->addresses[picks[p]]);
+            CHECK(noted(want), "list %zu: no \"%s\" (last %s)", i, want, last_note);
+            done++;
+        }
+    }
+    printf("   %u addresses verified at SeedSigner's index and branch\n", done);
+}
+
 int main(void)
 {
     btc_init(rand_fill);
@@ -408,6 +547,9 @@ int main(void)
     test__address_explorer__scan_wrong_qrtype__flow();
     test__address_explorer__back_button__flow();
     test_every_address_list();
+    test__verify_address__singlesig__flow();
+    test_verify_address_routes();
+    test_verify_every_list();
     fresh();
     storage_wipe_all();
     return CHECK_DONE("test_tools_flows");

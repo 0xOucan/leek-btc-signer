@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  █████████████░░░░░░░  71 of 109 views (65%)
+SeedSigner  ██████████████░░░░░░  77 of 109 views (71%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
@@ -78,7 +78,7 @@ are screens on top of it.
 | PSBT signing: segwit, nested, legacy, taproot | ✅ | ✅ byte-identical signed PSBTs (taproot verified) |
 | Animated UR output of the signed PSBT | ✅ | ✅ shown after approval; parts identical to SeedSigner's |
 | Address explorer | ✅ | ✅ receive and change addresses page by page, each as a QR; identical to SeedSigner's for every script type and network; multisig descriptors in Phase 6 |
-| Address verification | ✅ | 🟡 logic done; address display identical to SeedSigner's; flow next |
+| Address verification | ✅ | ✅ single sig: scan an address, pick or load the seed, search receive and change until it matches; multisig with descriptors in Phase 6 |
 | Multisig: descriptors, cosigner checks | ✅ | 🟡 multisig PSBTs reviewed and signed; change verification against a descriptor in Phase 6 |
 | BIP-85 child seeds | ✅ | 🟡 logic done; screens in Phase 6 |
 | Message signing | ✅ | 🟡 request decoding done; signing in Phase 6 |
@@ -96,7 +96,7 @@ are screens on top of it.
 | xpub export: native and nested segwit, taproot, legacy, multisig paths, SLIP-132 versions | Logic done |
 | PSBT review: change detection, fee, OP_RETURN, the anti-forgery checks | Done |
 | PSBT signing: ECDSA and taproot key path | Done |
-| Address verification | Logic done |
+| Address verification | Done, single sig |
 | QR decoding: UR, BBQr, Specter, base64/base43 PSBTs, every SeedQR form, addresses, sign-message | Done on the host, matches SeedSigner frame by frame |
 | QR output: SeedQR, xpubs (static, Specter, UR), animated UR PSBTs | Done on the host, matches SeedSigner part by part |
 | The Scan screen: progress, SeedSigner's wrong-type and invalid errors | Done in QEMU, fed SeedSigner's recorded scans |

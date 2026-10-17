@@ -1,20 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="860" height="342" viewBox="0 0 860 342" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <style>.t{fill:#57606a;font-size:13px}.h{fill:#24292f;font-size:16px;font-weight:600}.n{fill:#57606a;font-size:12px}.track{fill:#d0d7de}.done{fill:#f7931a}@media (prefers-color-scheme:dark){.t,.n{fill:#9198a1}.h{fill:#e6edf3}.track{fill:#30363d}}</style>
-<text class="h" x="10" y="24">SeedSigner on Leek BTC Signer: 71 of 109 views (65%)</text>
+<text class="h" x="10" y="24">SeedSigner on Leek BTC Signer: 77 of 109 views (71%)</text>
 <rect class="track" x="10" y="36" width="840" height="14" rx="7"/>
-<rect class="done" x="10" y="36" width="547.2" height="14" rx="7"/>
+<rect class="done" x="10" y="36" width="593.4" height="14" rx="7"/>
 <text class="t" x="10" y="84">System</text>
 <rect class="track" x="250" y="73" width="380" height="12" rx="6"/>
 <rect class="done" x="250" y="73" width="126.7" height="12" rx="6"/>
 <text class="n" x="640" y="84">4 of 12 views</text>
 <text class="t" x="10" y="118">Scan</text>
 <rect class="track" x="250" y="107" width="380" height="12" rx="6"/>
-<rect class="done" x="250" y="107" width="190.0" height="12" rx="6"/>
-<text class="n" x="640" y="118">3 of 6 views</text>
+<rect class="done" x="250" y="107" width="253.3" height="12" rx="6"/>
+<text class="n" x="640" y="118">4 of 6 views</text>
 <text class="t" x="10" y="152">Seeds</text>
 <rect class="track" x="250" y="141" width="380" height="12" rx="6"/>
-<rect class="done" x="250" y="141" width="253.3" height="12" rx="6"/>
-<text class="n" x="640" y="152">32 of 48 views</text>
+<rect class="done" x="250" y="141" width="292.9" height="12" rx="6"/>
+<text class="n" x="640" y="152">37 of 48 views</text>
 <text class="t" x="10" y="186">PSBT signing</text>
 <rect class="track" x="250" y="175" width="380" height="12" rx="6"/>
 <rect class="done" x="250" y="175" width="360.0" height="12" rx="6"/>

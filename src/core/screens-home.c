@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #include "theme.h"
+#include "views-address.h"
 #include "views-psbt.h"
 #include "views-seed.h"
 #include "views-tools.h"
@@ -22,7 +23,6 @@
 
 PENDING(CAMERA_SEED_PENDING, "New seed",
         "Camera entropy arrives with T52.");
-PENDING(VERIFY_PENDING, "Verify address", "Arrives with T40.");
 PENDING(ADVANCED_PENDING, "Advanced", "Settings arrive with T41.");
 PENDING(HARDWARE_PENDING, "Hardware", "Settings arrive with T41.");
 
@@ -108,7 +108,7 @@ static const menu_item_t tools_items[] = {
     { "New seed (dice)", NULL, ToolsDiceEntropyMnemonicLengthView },
     { "Calc 12th/24th word", NULL, ToolsCalcFinalWordNumWordsView },
     { "Address explorer", NULL, ToolsAddressExplorerSelectSourceView },
-    { "Verify address", &VERIFY_PENDING, NULL },
+    { "Verify address", &SCREEN_SCAN_ADDRESS, NULL },
 };
 static menu_t tools_menu = { "Tools", tools_items, 5, 0, 0 };
 static const screen_t TOOLS = SCREEN_MENU("ToolsMenuView", tools_menu);
@@ -149,6 +149,7 @@ static void home_resume(const screen_t *s)
     (void)s;
     psbt_flow_clear();
     tools_flow_clear();
+    address_flow_clear();
 }
 
 const screen_t SCREEN_HOME = {
