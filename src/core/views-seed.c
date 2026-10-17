@@ -20,6 +20,8 @@
 #include "settings.h"
 #include "text-entry.h"
 #include "theme.h"
+#include "btc-init.h"
+#include "qrcode.h"
 #include "views-psbt.h"
 #include "views-tools.h"
 #include "views.h"
@@ -568,7 +570,7 @@ static void backup_select(int i)
     if (i == 0) {
         SeedWordsWarningView(view_arg());
     } else {
-        not_yet("SeedTranscribeSeedQRFormatView");
+        SeedTranscribeSeedQRFormatView(view_arg());
     }
 }
 
@@ -631,8 +633,9 @@ static bool words_input(const screen_t *sc, input_ev_t ev)
             words.page++;
             ui_note("words page %d", words.page + 1);
         } else {
-            ui_pop();
-            not_yet("SeedWordsBackupTestPromptView");
+            /* Done (or Next, for a seed not loaded yet): offer the test, on
+               top of the last page so BACK returns to it. */
+            SeedWordsBackupTestPromptView(words.seed);
         }
         return true;
     }
@@ -885,4 +888,503 @@ MnemonicEntry *views_entry_state(void)
 TextEntry *views_passphrase_state(void)
 {
     return &passphrase_entry;
+}
+
+/* ---- The backup test: SeedWordsBackupTest{Prompt,,Mistake,Success}View -- */
+
+/* Which words have been confirmed, and the one asked. The words themselves
+   are read from the seed when needed; nothing here is secret. */
+static struct {
+    int seed;                       /* -1: the pending seed */
+    bool confirmed[SEED_MAX_WORDS];
+    int n_confirmed;
+    int cur;                        /* the word asked, 0-based */
+    char labels[4][16];
+} bt;
+
+static const seed_t *bt_seed(void)
+{
+    return bt.seed < 0 ? storage_pending() : storage_seed(bt.seed);
+}
+
+static uint32_t rand_below(uint32_t n)
+{
+    uint32_t r = 0;
+    btc_random(&r, sizeof r);
+    return n ? r % n : 0;
+}
+
+static void SeedWordsBackupTestView(int cur);
+
+static void after_backup(void)
+{
+    /* A seed not loaded yet goes on to be finalised; a loaded one back to
+       its options. */
+    if (bt.seed < 0) {
+        SeedFinalizeView();
+    } else {
+        view_clear_history();
+        SeedOptionsView(bt.seed);
+    }
+}
+
+static void success_select(int i)
+{
+    (void)i;
+    after_backup();
+}
+
+static void SeedWordsBackupTestSuccessView(void)
+{
+    const view_spec_t v = { .name = "SeedWordsBackupTestSuccessView", .status = true,
+                            .kind = NOTICE_SUCCESS, .title = "Backup Verified", .headline = "Success!",
+                            .text = "All mnemonic backup words were successfully verified!",
+                            .buttons = { "OK" }, .n_buttons = 1, .select = success_select,
+                            .back = no_back };
+    view_replace(&v);
+    ui_note("backup verified");
+}
+
+static void mistake_select(int i)
+{
+    if (i == 0) {
+        /* Review seed words: the words again, from the first page. The words
+           screen is under this one (the test replaced the prompt above it). */
+        ui_pop();
+        if (strcmp(ui_top()->name, "SeedWordsView") == 0) {
+            words.seed = bt.seed;
+            words.page = 0;
+        } else {
+            SeedWordsView(bt.seed);
+        }
+    } else {
+        SeedWordsBackupTestView(bt.cur);
+    }
+}
+
+static void SeedWordsBackupTestMistakeView(const char *wrong)
+{
+    char text[64];
+    snprintf(text, sizeof text, "Word #%d is not \"%s\"!", bt.cur + 1, wrong);
+    const view_spec_t v = { .name = "SeedWordsBackupTestMistakeView", .status = true, .kind = NOTICE_DIRE,
+                            .title = "Verification Error", .headline = "Wrong Word!", .text = text,
+                            .buttons = { "Review seed words", "Try again" }, .n_buttons = 2,
+                            .select = mistake_select, .back = no_back };
+    view_replace(&v);
+}
+
+static void backup_test_select(int i)
+{
+    const seed_t *s = bt_seed();
+    if (s == NULL) {
+        return;
+    }
+    /* Any button reading the real word is right, as SeedSigner compares
+       the options' labels. */
+    if (strcmp(bt.labels[i], BIP39_WORDLIST[s->words[bt.cur]]) == 0) {
+        if (!bt.confirmed[bt.cur]) {
+            bt.confirmed[bt.cur] = true;
+            bt.n_confirmed++;
+        }
+        if (bt.n_confirmed == (int)s->n_words) {
+            SeedWordsBackupTestSuccessView();
+        } else {
+            SeedWordsBackupTestView(-1);
+        }
+        return;
+    }
+    char wrong[16];
+    snprintf(wrong, sizeof wrong, "%s", bt.labels[i]);
+    SeedWordsBackupTestMistakeView(wrong);
+}
+
+/* Ask for word `cur`, or (-1) a random word not yet confirmed: the pick is
+   among those left, so it never has to retry. */
+static void SeedWordsBackupTestView(int cur)
+{
+    const seed_t *s = bt_seed();
+    if (s == NULL) {
+        return;
+    }
+    if (cur < 0) {
+        uint32_t k = rand_below((uint32_t)(s->n_words - (size_t)bt.n_confirmed));
+        for (cur = 0; cur < (int)s->n_words; cur++) {
+            if (!bt.confirmed[cur] && k-- == 0) {
+                break;
+            }
+        }
+    }
+    bt.cur = cur;
+    /* The real word and three random ones, in a random order. */
+    snprintf(bt.labels[0], sizeof bt.labels[0], "%s", BIP39_WORDLIST[s->words[cur]]);
+    for (int k = 1; k < 4; k++) {
+        snprintf(bt.labels[k], sizeof bt.labels[k], "%s", BIP39_WORDLIST[rand_below(2047)]);
+    }
+    for (int k = 3; k > 0; k--) {
+        const uint32_t j = rand_below((uint32_t)k + 1);
+        char tmp[16];
+        memcpy(tmp, bt.labels[k], sizeof tmp);
+        memcpy(bt.labels[k], bt.labels[j], sizeof tmp);
+        memcpy(bt.labels[j], tmp, sizeof tmp);
+    }
+    char title[24];
+    snprintf(title, sizeof title, "Verify Word #%d", cur + 1);
+    const view_spec_t v = { .name = "SeedWordsBackupTestView", .title = title,
+                            .buttons = { bt.labels[0], bt.labels[1], bt.labels[2], bt.labels[3] },
+                            .n_buttons = 4, .select = backup_test_select, .back = no_back };
+    view_replace(&v);
+    ui_note("verify word %d", cur + 1);
+}
+
+static void prompt_select(int i)
+{
+    if (i == 0) {
+        memset(bt.confirmed, 0, sizeof bt.confirmed);
+        bt.n_confirmed = 0;
+        SeedWordsBackupTestView(-1);
+    } else {
+        after_backup();
+    }
+}
+
+void SeedWordsBackupTestPromptView(int seed)
+{
+    bt.seed = seed;
+    const view_spec_t v = { .name = "SeedWordsBackupTestPromptView", .title = "Verify Backup?",
+                            .text = "Optionally verify that your mnemonic backup is correct.",
+                            .buttons = { "Verify", "Skip" }, .n_buttons = 2, .select = prompt_select,
+                            .back = no_back };
+    view_push(&v);
+}
+
+/* ---- Export as SeedQR: SeedTranscribeSeedQR*View ------------------------- */
+
+/* The SeedQR being transcribed. Its modules ARE the seed: internal RAM
+   (static), wiped with the panel when the transcription screens close.
+   Nothing about it goes in a note but its size and the zone shown. */
+static struct {
+    int seed;
+    bool compact;
+    QRCode code;
+    uint8_t modules[128];           /* version 3 (29x29) needs 106 bytes */
+    int per_zone;                   /* 5, or 7 for 21x21 */
+    int zones;                      /* per side */
+    int zone;                       /* row * zones + column */
+} tq;
+
+static void tq_wipe(void)
+{
+    wally_bzero(tq.modules, sizeof tq.modules);
+    wally_bzero(&tq.code, sizeof tq.code);
+}
+
+/* Build the QR SeedSigner's SeedQrEncoder or CompactSeedQrEncoder makes. */
+static bool tq_build(void)
+{
+    const seed_t *s = storage_seed(tq.seed);
+    if (s == NULL) {
+        return false;
+    }
+    uint8_t data[100];      /* 96 digits and the NUL for a standard 24-word SeedQR */
+    size_t len;
+    if (tq.compact) {
+        len = seedqr_encode_compact(s, data);
+    } else {
+        len = seedqr_encode_standard(s, (char *)data, sizeof data) ? strlen((char *)data) : 0;
+    }
+    const bool ok = len > 0 &&
+                    qrcode_fit(&tq.code, tq.modules, 3, ECC_LOW, data, (uint16_t)len) > 0;
+    wally_bzero(data, sizeof data);
+    if (!ok) {
+        tq_wipe();
+        return false;
+    }
+    tq.per_zone = tq.code.size == 21 ? 7 : 5;
+    tq.zones = (tq.code.size + tq.per_zone - 1) / tq.per_zone;
+    return true;
+}
+
+static void tq_leave(const screen_t *s)
+{
+    (void)s;
+    gfx_wipe();     /* the seed was on the panel */
+}
+
+/* Draw `n` x `n` modules from (mx, my) at `px` pixels each, from (x, y),
+   with grid lines every module (zoomed) or every zone (whole). */
+static void tq_draw(int x, int y, int mx, int my, int n, int px, int grid)
+{
+    gfx_fill_rect(x - 1, y - 1, n * px + 2, n * px + 2, C_QR_LIGHT);
+    for (int r = 0; r < n; r++) {
+        for (int c = 0; c < n; c++) {
+            const int qx = mx + c, qy = my + r;
+            if (qx < tq.code.size && qy < tq.code.size && qrcode_getModule(&tq.code, (uint8_t)qx, (uint8_t)qy)) {
+                gfx_fill_rect(x + c * px, y + r * px, px, px, C_BG);
+            }
+        }
+    }
+    if (grid > 0 && px >= 3) {
+        for (int k = grid; k < n; k += grid) {
+            for (int t = 0; t < n * px; t += 2) {
+                gfx_pixel(x + k * px, y + t, C_ACCENT);
+                gfx_pixel(x + t, y + k * px, C_ACCENT);
+            }
+        }
+    }
+}
+
+static void zone_label(int zone, char out[16])
+{
+    snprintf(out, 16, "%c-%d", 'A' + zone / tq.zones, zone % tq.zones + 1);
+}
+
+/* SeedTranscribeSeedQRConfirmQRPromptView */
+static void confirm_prompt_select(int i)
+{
+    if (i == 0) {
+        ui_push(&SCREEN_SCAN_CONFIRM_SEEDQR);
+    } else {
+        view_clear_history();
+        SeedOptionsView(tq.seed);
+    }
+}
+
+static void SeedTranscribeSeedQRConfirmQRPromptView(void)
+{
+    const view_spec_t v = { .name = "SeedTranscribeSeedQRConfirmQRPromptView", .title = "Confirm SeedQR?",
+                            .text = "Optionally scan your transcribed SeedQR to confirm that it reads "
+                                    "back correctly.",
+                            .buttons = { "Confirm SeedQR", "Done" }, .n_buttons = 2,
+                            .select = confirm_prompt_select };
+    view_push(&v);
+}
+
+/* SeedTranscribeSeedQRZoomedInView: one zone at a time, labelled as on
+   SeedSigner's printed templates ("B-3"). UP and DOWN step through the
+   zones in reading order; OK is done. */
+static void zoomed_render(const screen_t *s)
+{
+    (void)s;
+    char label[16], title[32];
+    zone_label(tq.zone, label);
+    snprintf(title, sizeof title, "Zone %s", label);
+    ui_draw_title(title);
+    const int top = THEME.top_h + 2;
+    const int avail = GFX_H - top - 2;
+    int px = avail / tq.per_zone;
+    if (px * tq.per_zone > GFX_W - 4) px = (GFX_W - 4) / tq.per_zone;
+    const int side = px * tq.per_zone;
+    const int x = (GFX_W - side) / 2, y = top + (avail - side) / 2;
+    tq_draw(x, y, (tq.zone % tq.zones) * tq.per_zone, (tq.zone / tq.zones) * tq.per_zone,
+            tq.per_zone, px, 1);
+}
+
+static bool zoomed_input(const screen_t *s, input_ev_t ev)
+{
+    (void)s;
+    const int n = tq.zones * tq.zones;
+    if (ev == IN_DOWN || ev == IN_UP) {
+        tq.zone = (tq.zone + (ev == IN_DOWN ? 1 : n - 1)) % n;
+        char label[16];
+        zone_label(tq.zone, label);
+        ui_note("zone %s", label);
+        return true;
+    }
+    if (ev == IN_OK) {
+        SeedTranscribeSeedQRConfirmQRPromptView();
+        return true;
+    }
+    return false;
+}
+
+/* Back on it after a failed confirmation: SeedSigner runs the View again,
+   from the first zone. */
+static void zoomed_resume(const screen_t *s)
+{
+    (void)s;
+    tq.zone = 0;
+}
+
+static const screen_t ZOOMED = {
+    .name = "SeedTranscribeSeedQRZoomedInView", .render = zoomed_render, .input = zoomed_input,
+    .resume = zoomed_resume, .leave = tq_leave,
+};
+
+/* SeedTranscribeSeedQRWholeQRView: the whole code, as large as fits, and
+   the way on. SeedSigner lays light grey zone lines over it; on a one-bit
+   panel any line changes modules, and the code on screen must scan as the
+   SeedQR, so the zones are shown in the zoomed-in view only. */
+static void whole_render(const screen_t *s)
+{
+    (void)s;
+    ui_draw_title("Transcribe SeedQR");
+    const int top = THEME.top_h + 2;
+    const int avail = GFX_H - top - 2;
+    char begin[24];
+    snprintf(begin, sizeof begin, "Begin %dx%d", tq.code.size, tq.code.size);
+    /* A one-module quiet zone, as a reader (and the user's own check scan)
+       needs. */
+    const int span = tq.code.size + 2;
+    int px = avail / span;
+    const bool beside = px >= 1 && GFX_W - px * span - 6 >= gfx_text_width("Begin", THEME.body);
+    if (!beside) {
+        px = (avail - THEME.row_box_h - 2) / span;
+    }
+    if (px < 1) px = 1;
+    const int side = px * span;
+    if (beside) {
+        gfx_fill_rect(1, top + (avail - side) / 2, side, side, C_QR_LIGHT);
+        tq_draw(1 + px, top + (avail - side) / 2 + px, 0, 0, tq.code.size, px, 0);
+        const int bx = side + 5, by = top + (avail - THEME.row_box_h) / 2;
+        gfx_fill_rect(bx, by, GFX_W - bx - 1, THEME.row_box_h, C_SEL_BG);
+        gfx_text(bx + 2, by + (THEME.row_box_h - gfx_font_height(THEME.body)) / 2,
+                 gfx_text_width(begin, THEME.body) <= GFX_W - bx - 4 ? begin : "Begin",
+                 THEME.body, C_SEL_FG);
+    } else {
+        gfx_fill_rect((GFX_W - side) / 2, top, side, side, C_QR_LIGHT);
+        tq_draw((GFX_W - side) / 2 + px, top + px, 0, 0, tq.code.size, px, 0);
+        const int by = GFX_H - THEME.row_box_h - 1;
+        gfx_fill_rect(THEME.pad, by, GFX_W - 2 * THEME.pad, THEME.row_box_h, C_SEL_BG);
+        gfx_text_centered(0, GFX_W, by + (THEME.row_box_h - gfx_font_height(THEME.body)) / 2,
+                          begin, THEME.body, C_SEL_FG);
+    }
+}
+
+static bool whole_input(const screen_t *s, input_ev_t ev)
+{
+    (void)s;
+    if (ev == IN_OK) {
+        tq.zone = 0;
+        ui_push(&ZOOMED);
+        return true;
+    }
+    return ev == IN_UP || ev == IN_DOWN;
+}
+
+static void whole_leave(const screen_t *s)
+{
+    tq_leave(s);
+    tq_wipe();      /* leaving the transcription altogether */
+}
+
+static const screen_t WHOLE = {
+    .name = "SeedTranscribeSeedQRWholeQRView", .render = whole_render, .input = whole_input,
+    .leave = whole_leave,
+};
+
+static void SeedTranscribeSeedQRWholeQRView(bool replace)
+{
+    if (!tq_build()) {
+        return;
+    }
+    ui_note("seedqr %dx%d", tq.code.size, tq.code.size);
+    if (replace) {
+        ui_replace(&WHOLE);
+    } else {
+        ui_push(&WHOLE);
+    }
+}
+
+static void seedqr_warning_select(int i)
+{
+    (void)i;
+    SeedTranscribeSeedQRWholeQRView(true);     /* skip_current_view */
+}
+
+static void SeedTranscribeSeedQRWarningView(void)
+{
+    if (!SETTINGS.dire_warnings) {
+        SeedTranscribeSeedQRWholeQRView(false);
+        return;
+    }
+    const view_spec_t v = { .name = "SeedTranscribeSeedQRWarningView", .status = true, .kind = NOTICE_DIRE,
+                            .title = "Caution", .headline = "SeedQR is your private key!",
+                            .text = "Never photograph or scan it into a device that connects to the "
+                                    "internet.",
+                            .buttons = { "I understand" }, .n_buttons = 1,
+                            .select = seedqr_warning_select };
+    view_push(&v);
+}
+
+static void seedqr_format_select(int i)
+{
+    tq.compact = i == 1;
+    SeedTranscribeSeedQRWarningView();
+}
+
+void SeedTranscribeSeedQRFormatView(int seed)
+{
+    const seed_t *s = storage_seed(seed);
+    if (s == NULL) {
+        return;
+    }
+    tq.seed = seed;
+    tq.compact = false;
+    if (!SETTINGS.compact_seedqr) {
+        /* Only standard SeedQR. SeedSigner passes the 12-word size here
+           whatever the length, so labels a 24-word code "25x25"; this
+           port gives its real size, 29x29. */
+        SeedTranscribeSeedQRWarningView();
+        return;
+    }
+    const bool twelve = s->n_words == 12;
+    const view_spec_t v = { .name = "SeedTranscribeSeedQRFormatView", .title = "SeedQR Format",
+                            .text = "Standard: BIP-39 wordlist indices\nCompact: raw entropy bits",
+                            .buttons = { twelve ? "Standard: 25x25" : "Standard: 29x29",
+                                         twelve ? "Compact: 21x21" : "Compact: 25x25" },
+                            .n_buttons = 2, .select = seedqr_format_select };
+    view_push(&v);
+}
+
+/* ---- Confirming the transcription: the scan and its three outcomes ------ */
+
+static void review_seedqr_select(int i)
+{
+    (void)i;
+    /* Back to the zoomed-in transcription, past the prompt. */
+    ui_pop();
+    if (strcmp(ui_top()->name, "SeedTranscribeSeedQRConfirmQRPromptView") == 0) {
+        ui_pop();
+    }
+}
+
+static void confirm_success_select(int i)
+{
+    (void)i;
+    view_clear_history();
+    SeedOptionsView(tq.seed);
+}
+
+void transcribe_confirm_scanned(const uint16_t *words, size_t n)
+{
+    const seed_t *s = storage_seed(tq.seed);
+    if (n == 0 || s == NULL) {
+        /* Not a SeedQR at all, or one that could not be read. */
+        const view_spec_t v = { .name = "SeedTranscribeSeedQRConfirmInvalidQRView", .status = true,
+                                .kind = NOTICE_DIRE, .title = "Confirm SeedQR", .headline = "Error!",
+                                .text = "Your transcribed SeedQR could not be read!",
+                                .buttons = { "Review SeedQR" }, .n_buttons = 1,
+                                .select = review_seedqr_select, .back = no_back };
+        view_replace(&v);
+        return;
+    }
+    bool same = n == s->n_words;
+    for (size_t i = 0; same && i < n; i++) {
+        same = words[i] == s->words[i];
+    }
+    if (!same) {
+        const view_spec_t v = { .name = "SeedTranscribeSeedQRConfirmWrongSeedView", .status = true,
+                                .kind = NOTICE_DIRE, .title = "Confirm SeedQR", .headline = "Error!",
+                                .text = "Your transcribed SeedQR does not match your original seed!",
+                                .buttons = { "Review SeedQR" }, .n_buttons = 1,
+                                .select = review_seedqr_select, .back = no_back };
+        view_replace(&v);
+        return;
+    }
+    const view_spec_t v = { .name = "SeedTranscribeSeedQRConfirmSuccessView", .status = true,
+                            .kind = NOTICE_SUCCESS, .title = "Confirm SeedQR", .headline = "Success!",
+                            .text = "Your transcribed SeedQR successfully scanned and yielded the same seed.",
+                            .buttons = { "OK" }, .n_buttons = 1, .select = confirm_success_select,
+                            .back = no_back };
+    view_push(&v);
 }

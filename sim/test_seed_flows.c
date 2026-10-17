@@ -9,6 +9,9 @@
  */
 #include "btc-init.h"
 #include "flow.h"
+#include "quirc.h"
+#include "views-tools.h"
+#include "wally_core.h"
 
 /* abandon x11 about: CompactSeedQR all zero bytes, fingerprint 73c5da0a. */
 static const uint8_t ZERO16[16];
@@ -206,7 +209,240 @@ static void test_seeds_menu_and_backup(void)
     choose("View seed words");
     choose("I understand");
     for (int i = 0; i < 3; i++) key(IN_OK);
-    STEP("NotYetImplementedView");
+    STEP("SeedWordsBackupTestPromptView");
+}
+
+/* ---- The backup test ---------------------------------------------------- */
+
+/* The word SeedWordsBackupTestView asks for, from its note. */
+static int asked_word(void)
+{
+    int k = 0;
+    return sscanf(last_note, "verify word %d", &k) == 1 ? k : 0;
+}
+
+static void choose_wrong(const char *right)
+{
+    for (int i = 0; i < 8; i++) key(IN_UP);
+    for (int i = 0; i < 4; i++) {
+        const char *sel = ui_selected_label();
+        if (sel && strcmp(sel, right) != 0) {
+            key(IN_OK);
+            return;
+        }
+        key(IN_DOWN);
+    }
+    CHECK(0, "no wrong word offered");
+}
+
+static void test_backup_test_flow(void)
+{
+    printf("== backup test: wrong word, try again, review, verify every word\n");
+    fresh();
+    notes_reset();
+    load_blush();
+    SeedOptionsView(0);
+    choose("Backup seed");
+    choose("View seed words");
+    choose("I understand");
+    for (int i = 0; i < 3; i++) key(IN_OK);
+    STEP("SeedWordsBackupTestPromptView");
+    choose("Verify");
+    STEP("SeedWordsBackupTestView");
+    const seed_t *s = storage_seed(0);
+    int k = asked_word();
+    CHECK(k >= 1 && k <= 12, "note %s", last_note);
+    choose_wrong(BIP39_WORDLIST[s->words[k - 1]]);
+    STEP("SeedWordsBackupTestMistakeView");
+    choose("Try again");
+    STEP("SeedWordsBackupTestView");
+    CHECK(asked_word() == k, "Try again asked another word");
+    choose_wrong(BIP39_WORDLIST[s->words[k - 1]]);
+    choose("Review seed words");
+    STEP("SeedWordsView");
+    for (int i = 0; i < 3; i++) key(IN_OK);
+    STEP("SeedWordsBackupTestPromptView");
+    choose("Verify");
+    bool seen[12] = { false };
+    for (int i = 0; i < 12; i++) {
+        STEP("SeedWordsBackupTestView");
+        k = asked_word();
+        CHECK(k >= 1 && k <= 12 && !seen[k - 1], "word %d asked twice", k);
+        if (k >= 1 && k <= 12) {
+            seen[k - 1] = true;
+            choose(BIP39_WORDLIST[s->words[k - 1]]);
+        }
+    }
+    STEP("SeedWordsBackupTestSuccessView");
+    choose("OK");
+    STEP("SeedOptionsView");
+    key(IN_BACK);
+    STEP("MainMenuView");
+
+    /* A seed not loaded yet (from dice): Skip goes on to finalise it. */
+    fresh();
+    choose("Tools");
+    choose("New seed (dice)");
+    choose("12 words (50 rolls)");
+    for (int i = 0; i < 50; i++) key(IN_OK);
+    STEP("SeedWordsWarningView");
+    choose("I understand");
+    for (int i = 0; i < 3; i++) key(IN_OK);
+    STEP("SeedWordsBackupTestPromptView");
+    choose("Skip");
+    STEP("SeedFinalizeView");
+}
+
+/* ---- Export as SeedQR ------------------------------------------------------ */
+
+/* Read the panel back with quirc, as a camera would. */
+static size_t read_screen(uint8_t *out, size_t cap)
+{
+    struct quirc *q = quirc_new();
+    struct quirc_data *d = malloc(sizeof *d);
+    size_t n = 0;
+    const int up = 3;
+    if (q && d && quirc_resize(q, GFX_W * up, GFX_H * up) == 0) {
+        int w, h;
+        uint8_t *img = quirc_begin(q, &w, &h);
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++) {
+                const gfx_color_t c = gfx_get(x / up, y / up);
+                const uint32_t rgb = gfx_role_rgb(c);
+                const bool light = GFX_MONO ? gfx_role_lit(c)
+                                            : ((rgb >> 16) & 255) + ((rgb >> 8) & 255) + (rgb & 255) > 384;
+                img[(size_t)y * (size_t)w + (size_t)x] = light ? 255 : 0;
+            }
+        quirc_end(q);
+        for (int i = 0; n == 0 && i < quirc_count(q); i++) {
+            struct quirc_code c;
+            quirc_extract(q, i, &c);
+            if (quirc_decode(&c, d) == QUIRC_SUCCESS && (size_t)d->payload_len <= cap) {
+                memcpy(out, d->payload, (size_t)d->payload_len);
+                n = (size_t)d->payload_len;
+            }
+        }
+    }
+    free(d);
+    if (q) quirc_destroy(q);
+    return n;
+}
+
+static void test_transcribe_every_format(void)
+{
+    printf("== SeedQR transcription: standard and compact, 12 and 24 words, read back\n");
+    static const char *m24 = "cotton artefact spy mind wing there echo steak child oak awful host despair "
+                             "online bicycle divorce middle firm diamond rare execute chimney almost hollow";
+    for (int len = 0; len < 2; len++) {
+        for (int compact = 0; compact < 2; compact++) {
+            fresh();
+            notes_reset();
+            seed_t ref;
+            if (len == 0) {
+                load_blush();
+                seed_from_mnemonic(&ref, "blush twice taste dawn feed second opinion lazy thumb play neglect impact", "");
+            } else {
+                seed_from_mnemonic(&ref, m24, "");
+                storage_set_pending(&ref);
+                storage_finalize();
+            }
+            const int size = len == 0 ? (compact ? 21 : 25) : (compact ? 25 : 29);
+            SeedOptionsView(0);
+            choose("Backup seed");
+            choose("Export as SeedQR");
+            STEP("SeedTranscribeSeedQRFormatView");
+            char label[24];
+            snprintf(label, sizeof label, "%s: %dx%d", compact ? "Compact" : "Standard", size, size);
+            choose(label);
+            STEP("SeedTranscribeSeedQRWarningView");
+            choose("I understand");
+            STEP("SeedTranscribeSeedQRWholeQRView");
+            char want[32];
+            snprintf(want, sizeof want, "seedqr %dx%d", size, size);
+            CHECK(noted(want), "no \"%s\"", want);
+            /* The code on the panel is the seed's own SeedQR. */
+            uint8_t got[100], exp[100];
+            size_t elen = compact ? seedqr_encode_compact(&ref, exp) : 0;
+            if (!compact) {
+                seedqr_encode_standard(&ref, (char *)exp, sizeof exp);
+                elen = strlen((char *)exp);
+            }
+            const size_t glen = read_screen(got, sizeof got);
+            CHECK(glen == elen && memcmp(got, exp, elen) == 0, "%s: the screen does not read back as the SeedQR", label);
+            key(IN_BACK);
+            STEP("SeedTranscribeSeedQRFormatView");     /* the warning was skipped on the way back */
+            choose(label);
+            choose("I understand");
+            key(IN_OK);
+            STEP("SeedTranscribeSeedQRZoomedInView");
+            /* Every zone, in reading order, back round to A-1. */
+            const int per = size == 21 ? 7 : 5, zones = (size + per - 1) / per;
+            for (int z = 1; z <= zones * zones; z++) key(IN_DOWN);
+            CHECK(strcmp(last_note, "zone A-1") == 0, "%d zones did not wrap: %s", zones * zones, last_note);
+            key(IN_UP);
+            snprintf(want, sizeof want, "zone %c-%d", 'A' + zones - 1, zones);
+            CHECK(strcmp(last_note, want) == 0, "last zone: %s, want %s", last_note, want);
+            key(IN_OK);
+            STEP("SeedTranscribeSeedQRConfirmQRPromptView");
+            choose("Done");
+            STEP("SeedOptionsView");
+            seed_clear(&ref);
+            wally_bzero(got, sizeof got);
+            wally_bzero(exp, sizeof exp);
+        }
+    }
+}
+
+/* tests/test_flows_seed.py: test_transcribe_seedqr_and_verify */
+static void test_transcribe_seedqr_and_verify(void)
+{
+    printf("== test_transcribe_seedqr_and_verify\n");
+    fresh();
+    seed_t s;
+    seed_from_mnemonic(&s, "abandon abandon abandon abandon abandon abandon abandon abandon abandon "
+                           "abandon abandon about", "");
+    storage_set_pending(&s);
+    seed_clear(&s);
+    storage_finalize();
+    static const char *const scans[] = {
+        "013801380138013801380138013801380138013801380138013801380138013801380138013801380138013801380138",
+        "I like cheese",
+        "UR:CRYPTO-PSBT/HKADHEJOJKIDJYZMADAEGMAOAEAEAEADHHGLEYKGBDSBKEMTSARLVYSGIABEDELFSKWLLUDKLYESJOFDLPJPFXSOHHWZTYWEAEAEAEAEAEZCZMZMZMADBKBZJEDEHEAEAEAECMAEBBVEPFDWDMBBGSPFZTKIMYCLKPSOBDDTRDWTWPYKGAQDKNAEAEGWADAAECLTTKAXWSWTUTSNLAAEAEAEPKCTBSHGISSSRETIVEWSGYNEPTHTESNSWMLBTARYEMHTBTBTLNWSBKJLMKYNFGHLAXJYBBTTIDHKDICHAMLEHHDSRKATGDLYSBIYHNHDNEWPJKZSZMDKVETYNSGOCXKNDNBEOLFSRSNSGHAEAELAADAEAELAAEAEAELAAEADADCTKSBZJEDEHEAEAEAECMAEBBVEPFDWDMBBGSPFZTKIMYCLKPSOBDDTRDWTWPYKGAADAXAAADAEAEAECPAMAODSFTLDTYFRECSKVWYLKNBANNKKZCRTHYJTPSHLHNHKNBPDCLCFDMSOLPDKFXLFQZCSOLFSRSNSGHAEAELAADAEAELAAEAEAELAAEAEAEAEAEAEAEAEAECPAOAODSFTLDTYFRECSKVWYLKNBANNKKZCRTHYJTPSHLHNHKNBPDCLCFDMSOLPDKFXLFQZCSOLFSRSNSGHAEAELAADAEAELAAEAEAELAAEAEAEAEAEAEAEAEAELGMKFZCW",
+        "000000000000000000000000000000000000000000000003",
+    };
+    static const char *const outcome[] = {
+        "SeedTranscribeSeedQRConfirmWrongSeedView", "SeedTranscribeSeedQRConfirmInvalidQRView",
+        "SeedTranscribeSeedQRConfirmInvalidQRView", "SeedTranscribeSeedQRConfirmSuccessView",
+    };
+    choose("Seeds");
+    STEP("SeedsMenuView");
+    for (int i = 0; i < 40; i++) key(IN_UP);
+    key(IN_OK);
+    STEP("SeedOptionsView");
+    choose("Backup seed");
+    STEP("SeedBackupView");
+    choose("Export as SeedQR");
+    STEP("SeedTranscribeSeedQRFormatView");
+    choose("Standard: 25x25");
+    STEP("SeedTranscribeSeedQRWarningView");
+    choose("I understand");
+    STEP("SeedTranscribeSeedQRWholeQRView");
+    key(IN_OK);
+    STEP("SeedTranscribeSeedQRZoomedInView");
+    for (int i = 0; i < 4; i++) {
+        key(IN_OK);
+        STEP("SeedTranscribeSeedQRConfirmQRPromptView");
+        choose("Confirm SeedQR");
+        STEP("SeedTranscribeSeedQRConfirmScanView");
+        scan((const uint8_t *)scans[i], strlen(scans[i]));
+        STEP(outcome[i]);
+        if (i < 3) {
+            choose("Review SeedQR");
+            STEP("SeedTranscribeSeedQRZoomedInView");
+        }
+    }
+    choose("OK");
+    STEP("SeedOptionsView");
 }
 
 int main(void)
@@ -221,6 +457,10 @@ int main(void)
     test_export_xpub_standard_flow();
     test_discard_seed_flow();
     test_seeds_menu_and_backup();
+    test_backup_test_flow();
+    test_transcribe_every_format();
+    test_transcribe_seedqr_and_verify();
+    fresh();
     storage_wipe_all();
     return CHECK_DONE("test_seed_flows");
 }

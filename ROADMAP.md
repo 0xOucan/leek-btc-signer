@@ -249,6 +249,7 @@ on the host and in QEMU.
 | T39 | Done, single-sig and multisig without a descriptor | `views-psbt.c`: 18 of SeedSigner's 19 PSBT views. `test_psbt_flows` ports `test_flows_psbt.py` and walks all 207 parser-test PSBTs through the screens on five profiles; 155 sign to SeedSigner's PSBT. `qemu-flow.py psbt-sign` signs on the Xtensa image. Verifying multisig change against a descriptor waits for T47 |
 | T35 | Done except camera entropy | `views-tools.c`: SeedSigner's dice views (50 or 99 rolls on a 1-6 keypad with DEL) and the five final-word calculator views (coin flips, a chosen word, or zeros, then the checksum word). SeedSigner has no flow tests for these, so `gen_tools_vectors.py` runs its own Views through its FlowTest harness and records what they compute; `test_tools_flows` matches all 12 dice and 18 final-word cases on five profiles. `qemu-flow.py dice-seed` makes a seed from 50 rolls on the Xtensa image. Camera entropy waits for the board (T9) |
 | T51 | Done, single sig | `views-tools.c`: SeedSigner's four address explorer views, entered from the Tools menu or a seed's options, with a seed loaded mid-flow resuming it (`resume_main_flow`). `test_tools_flows` ports `test_flows_tools.py`'s explorer cases, all four BACK scenarios included, and checks 48 address lists SeedSigner's own explorer made (960 addresses: 2 seeds, 3 networks, 4 script types, receive and change, two pages). `qemu-flow.py address-explorer` shows BIP-84's first address on the Xtensa image. Wallet descriptors (multisig) and custom derivations wait for T47 |
+| T37 | Done except the camera | SeedSigner's backup test (four views: every word asked once in random order, the real word among three decoys drawn from the platform RNG) and SeedQR transcription (nine views: format, warning, the whole code, zone by zone A-1 to F-6, and a confirming scan with its three outcomes). `test_seed_flows` ports `test_transcribe_seedqr_and_verify` and reads the panel back with quirc: standard and compact, 12 and 24 words, all five profiles, each is the seed's own SeedQR. `qemu-flow.py seedqr-transcribe` on the Xtensa image. Scanning the paper copy needs the camera (T9) |
 | Found by QEMU | Fixed | The Scan screen sized its PSBT buffer to its whole arena, which a board short of RAM could not give; it is now bounded by the scan (`qr_decoder_psbt_max`), checked against every recorded PSBT |
 
 ### 2026-10-17: Phase 4 begins, measured in SeedSigner views
@@ -346,4 +347,22 @@ explorer through its FlowTest harness and records every list it makes;
 `test_tools_flows` ports the explorer cases of `test_flows_tools.py` and
 matches all 960 addresses on five profiles. Stack views now take up to 12
 buttons and open on a given selection. 58 of 109 views.
+
+### 2026-10-17: The backup test and SeedQR transcription
+
+Thirteen seed views. After the backup words, SeedSigner's optional test asks
+for every word once, in random order, among three decoys; here the order and
+decoys come from the platform's RNG (`btc_random`), and the next word is
+drawn from those left, so it never retries. SeedQR export draws the whole
+code with a one-module quiet zone, then zone by zone as on SeedSigner's
+printed templates (UP/DOWN step through the zones on the encoder), and
+offers a confirming scan that reports a different seed, an unreadable or
+non-SeedQR code, or success. The SeedQR is the seed: its modules live in
+internal RAM and are wiped, with the panel, when the screens close.
+
+Two deliberate differences: SeedSigner lays light grey zone lines over the
+whole code, which on a one-bit panel change modules, so here the whole code
+is drawn plain and must scan as the SeedQR (the suite reads it back with
+quirc on all five profiles); and with compact SeedQR disabled SeedSigner
+labels a 24-word code 25x25, where this port shows 29x29. 71 of 109 views.
 

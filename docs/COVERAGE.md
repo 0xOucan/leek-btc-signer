@@ -7,7 +7,7 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**58 of 109 views: 53.2%.**
+**71 of 109 views: 65.1%.**
 
 ## System: 4 of 12
 
@@ -37,7 +37,7 @@ writes this page and the README chart.
 | `ScanAddressView` |  |  |
 | `ScanInvalidQRTypeView` | ✅ | sim/test_scan.c; qemu-flow scan-invalid |
 
-## Seeds: 19 of 48
+## Seeds: 32 of 48
 
 | View | Done | Evidence |
 |---|---|---|
@@ -62,23 +62,23 @@ writes this page and the README chart.
 | `SeedExportXpubDetailsView` | ✅ | BIP-84 zpub on the firmware: qemu-flow seed-lifecycle; test_seed_flows.c |
 | `SeedExportXpubQRDisplayView` | ✅ | parts identical to SeedSigner's (test_qr_encode.c); qemu-flow seed-lifecycle |
 | `SeedWordsWarningView` | ✅ | test_seed_flows.c |
-| `SeedWordsView` | ✅ | pages of four words, BACK pages back: test_seed_flows.c |
+| `SeedWordsView` | ✅ | pages of four words, BACK pages back, on to the backup test: test_seed_flows.c |
 | `SeedBIP85SelectNumWordsView` |  |  |
 | `SeedBIP85SelectChildIndexView` |  |  |
 | `SeedBIP85InvalidChildIndexView` |  |  |
-| `SeedWordsBackupTestPromptView` |  |  |
-| `SeedWordsBackupTestView` |  |  |
-| `SeedWordsBackupTestMistakeView` |  |  |
-| `SeedWordsBackupTestSuccessView` |  |  |
-| `SeedTranscribeSeedQRFormatView` |  |  |
-| `SeedTranscribeSeedQRWarningView` |  |  |
-| `SeedTranscribeSeedQRWholeQRView` |  |  |
-| `SeedTranscribeSeedQRZoomedInView` |  |  |
-| `SeedTranscribeSeedQRConfirmQRPromptView` |  |  |
-| `SeedTranscribeSeedQRConfirmScanView` |  |  |
-| `SeedTranscribeSeedQRConfirmWrongSeedView` |  |  |
-| `SeedTranscribeSeedQRConfirmInvalidQRView` |  |  |
-| `SeedTranscribeSeedQRConfirmSuccessView` |  |  |
+| `SeedWordsBackupTestPromptView` | ✅ | verify and skip, loaded and pending seeds: test_seed_flows.c |
+| `SeedWordsBackupTestView` | ✅ | every word asked once, decoys, secure RNG: test_seed_flows.c |
+| `SeedWordsBackupTestMistakeView` | ✅ | try again, review words: test_seed_flows.c |
+| `SeedWordsBackupTestSuccessView` | ✅ | test_seed_flows.c |
+| `SeedTranscribeSeedQRFormatView` | ✅ | standard and compact, 12 and 24 words: test_seed_flows.c; qemu-flow seedqr-transcribe |
+| `SeedTranscribeSeedQRWarningView` | ✅ | test_seed_flows.c; qemu-flow seedqr-transcribe |
+| `SeedTranscribeSeedQRWholeQRView` | ✅ | the panel reads back as the SeedQR, every format, five profiles: test_seed_flows.c; qemu-flow seedqr-transcribe |
+| `SeedTranscribeSeedQRZoomedInView` | ✅ | every zone, A-1 to F-6: test_seed_flows.c; qemu-flow seedqr-transcribe |
+| `SeedTranscribeSeedQRConfirmQRPromptView` | ✅ | test_transcribe_seedqr_and_verify: test_seed_flows.c; qemu-flow seedqr-transcribe |
+| `SeedTranscribeSeedQRConfirmScanView` | ✅ | test_transcribe_seedqr_and_verify: test_seed_flows.c |
+| `SeedTranscribeSeedQRConfirmWrongSeedView` | ✅ | test_transcribe_seedqr_and_verify: test_seed_flows.c |
+| `SeedTranscribeSeedQRConfirmInvalidQRView` | ✅ | unreadable and non-SeedQR codes: test_seed_flows.c |
+| `SeedTranscribeSeedQRConfirmSuccessView` | ✅ | test_transcribe_seedqr_and_verify: test_seed_flows.c |
 | `AddressVerificationStartView` |  |  |
 | `AddressVerificationSigTypeView` |  |  |
 | `SeedAddressVerificationView` |  |  |

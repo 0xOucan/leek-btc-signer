@@ -62,13 +62,27 @@ DONE = {
     "SeedDiscardView": "test_discard_seed_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
     "SeedBackupView": "test_seed_flows.c",
     "SeedWordsWarningView": "test_seed_flows.c",
-    "SeedWordsView": "pages of four words, BACK pages back: test_seed_flows.c",
+    "SeedWordsView": "pages of four words, BACK pages back, on to the backup test: test_seed_flows.c",
     "SeedExportXpubSigTypeView": "test_export_xpub_standard_flow, all 21 combinations: test_seed_flows.c",
     "SeedExportXpubScriptTypeView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
     "SeedExportXpubQRFormatView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
     "SeedExportXpubWarningView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
     "SeedExportXpubDetailsView": "BIP-84 zpub on the firmware: qemu-flow seed-lifecycle; test_seed_flows.c",
     "SeedExportXpubQRDisplayView": "parts identical to SeedSigner's (test_qr_encode.c); qemu-flow seed-lifecycle",
+    # The backup test and SeedQR transcription
+    "SeedWordsBackupTestPromptView": "verify and skip, loaded and pending seeds: test_seed_flows.c",
+    "SeedWordsBackupTestView": "every word asked once, decoys, secure RNG: test_seed_flows.c",
+    "SeedWordsBackupTestMistakeView": "try again, review words: test_seed_flows.c",
+    "SeedWordsBackupTestSuccessView": "test_seed_flows.c",
+    "SeedTranscribeSeedQRFormatView": "standard and compact, 12 and 24 words: test_seed_flows.c; qemu-flow seedqr-transcribe",
+    "SeedTranscribeSeedQRWarningView": "test_seed_flows.c; qemu-flow seedqr-transcribe",
+    "SeedTranscribeSeedQRWholeQRView": "the panel reads back as the SeedQR, every format, five profiles: test_seed_flows.c; qemu-flow seedqr-transcribe",
+    "SeedTranscribeSeedQRZoomedInView": "every zone, A-1 to F-6: test_seed_flows.c; qemu-flow seedqr-transcribe",
+    "SeedTranscribeSeedQRConfirmQRPromptView": "test_transcribe_seedqr_and_verify: test_seed_flows.c; qemu-flow seedqr-transcribe",
+    "SeedTranscribeSeedQRConfirmScanView": "test_transcribe_seedqr_and_verify: test_seed_flows.c",
+    "SeedTranscribeSeedQRConfirmWrongSeedView": "test_transcribe_seedqr_and_verify: test_seed_flows.c",
+    "SeedTranscribeSeedQRConfirmInvalidQRView": "unreadable and non-SeedQR codes: test_seed_flows.c",
+    "SeedTranscribeSeedQRConfirmSuccessView": "test_transcribe_seedqr_and_verify: test_seed_flows.c",
     # PSBT signing: SeedSigner's tests/test_flows_psbt.py, ported in
     # sim/test_psbt_flows.c, plus every PSBT of its parser tests walked
     # through the screens to the signed QR ("the sweep")

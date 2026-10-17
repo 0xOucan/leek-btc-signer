@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  ███████████░░░░░░░░░  58 of 109 views (53%)
+SeedSigner  █████████████░░░░░░░  71 of 109 views (65%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
@@ -68,7 +68,8 @@ are screens on top of it.
 
 | Feature | SeedSigner | Leek BTC Signer |
 |---|---|---|
-| SeedQR, CompactSeedQR: scan and show | ✅ | 🟡 scan to a loaded seed done; showing a SeedQR next |
+| SeedQR, CompactSeedQR: scan and show | ✅ | ✅ scan to a loaded seed; transcription zone by zone, and a confirming scan |
+| Backup words and the backup test | ✅ | ✅ words page by page, then every word verified in random order with decoys |
 | Seeds from words, dice, coin flips | ✅ | ✅ typing 12 or 24 words; dice (50 or 99 rolls); the final-word calculator from coin flips, a chosen word or zeros; camera entropy needs the board |
 | BIP-39 passphrase | ✅ | ✅ add, review, edit, discard, as SeedSigner's flow |
 | xpub export: static, Specter, animated UR | ✅ | ✅ the whole flow, all 21 of SeedSigner's combinations |

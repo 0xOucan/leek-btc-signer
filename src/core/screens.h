@@ -10,6 +10,7 @@ extern const screen_t SCREEN_HOME;
 extern const screen_t SCREEN_LOAD_SEED;   /* LoadSeedView */
 /* SeedSigner's ScanView, ScanPSBTView and ScanSeedQRView. */
 extern const screen_t SCREEN_SCAN, SCREEN_SCAN_PSBT, SCREEN_SCAN_SEED;
+extern const screen_t SCREEN_SCAN_CONFIRM_SEEDQR;   /* SeedTranscribeSeedQRConfirmScanView */
 
 /* Text for the Version screen; set once at boot. */
 void screens_set_version(const char *version, const char *board,

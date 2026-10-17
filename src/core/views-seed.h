@@ -6,6 +6,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "mnemonic-entry.h"
 #include "text-entry.h"
@@ -27,6 +28,11 @@ void SeedDiscardView(int seed);
 void SeedBackupView(int seed);
 void SeedWordsWarningView(int seed);
 void SeedWordsView(int seed);
+void SeedWordsBackupTestPromptView(int seed);
+void SeedTranscribeSeedQRFormatView(int seed);
+/* The confirming scan's result: the words of the SeedQR read, or n = 0
+ * for anything that is not one. Called by the scan screen. */
+void transcribe_confirm_scanned(const uint16_t *words, size_t n);
 void SeedExportXpubSigTypeView(int seed);
 
 /* For the host flow tests, which press keys against the entry state. */

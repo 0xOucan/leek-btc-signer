@@ -34,7 +34,9 @@
 #include "wally_core.h"
 #include "wally_crypto.h"
 
-typedef enum { SCAN_ANY, SCAN_PSBT, SCAN_SEED } scan_kind_t;
+/* SCAN_CONFIRM is SeedTranscribeSeedQRConfirmScanView: any code ends it,
+   and views-seed.c judges whether it is the SeedQR just transcribed. */
+typedef enum { SCAN_ANY, SCAN_PSBT, SCAN_SEED, SCAN_CONFIRM } scan_kind_t;
 
 /* Largest arena tried first: PSRAM on the board (ESP-IDF's malloc puts
    anything over 16 KB there); QEMU has none, so it falls back. */
@@ -235,14 +237,16 @@ static void scan_leave(const screen_t *s)
 static void scan_render(const screen_t *s)
 {
     (void)s;
-    ui_draw_title(scan.kind == SCAN_PSBT ? "Scan PSBT" : scan.kind == SCAN_SEED ? "Scan SeedQR" : "Scan");
+    ui_draw_title(scan.kind == SCAN_PSBT ? "Scan PSBT" : scan.kind == SCAN_SEED ? "Scan SeedQR"
+                  : scan.kind == SCAN_CONFIRM ? "Confirm SeedQR" : "Scan");
     int y = THEME.top_h + THEME.pad + 2;
     if (scan.no_memory) {
         ui_draw_wrapped(y, "Not enough memory to scan.", C_WARN);
         return;
     }
     y = ui_draw_wrapped(y, scan.kind == SCAN_PSBT ? "Scan Transaction"
-                           : scan.kind == SCAN_SEED ? "Scan SeedQR" : "Scan a QR code", C_FG);
+                           : scan.kind == SCAN_SEED ? "Scan SeedQR"
+                           : scan.kind == SCAN_CONFIRM ? "Scan your SeedQR" : "Scan a QR code", C_FG);
     if (scan.dec && scan.dec->type != QR_TYPE_NONE && scan.pct > 0) {
         /* SeedSigner's progress bar, under the text. */
         const int bar_y = GFX_H - THEME.line_h - 8;
@@ -271,6 +275,20 @@ static bool scan_tick(const screen_t *s)
         ui_note("frame %d %s %d", (int)st, qr_type_name(scan.dec->type),
                 qr_decoder_percent(scan.dec, true));
         changed = true;
+        if (scan.kind == SCAN_CONFIRM &&
+            (st == QR_STATUS_COMPLETE || st == QR_STATUS_INVALID || st == QR_STATUS_UNSUPPORTED)) {
+            uint16_t words[SEED_MAX_WORDS];
+            size_t n = 0;
+            if (st == QR_STATUS_COMPLETE && qr_is_seed(scan.dec->type)) {
+                n = qr_decoder_seed(scan.dec, words);
+            }
+            ui_note("confirm-scan %s", n ? "seed" : qr_type_name(scan.dec->type));
+            /* Replaces this screen, which wipes the decoder; the words are
+               compared, then wiped. */
+            transcribe_confirm_scanned(words, n);
+            wally_bzero(words, sizeof words);
+            return true;
+        }
         if (st == QR_STATUS_COMPLETE) {
             const route_t r = describe();
             if (r == ROUTE_RESULT) {
@@ -311,6 +329,10 @@ const screen_t SCREEN_SCAN = {
 const screen_t SCREEN_SCAN_PSBT = {
     .name = "ScanPSBTView", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
     .tick = scan_tick, .ctx = (void *)(intptr_t)SCAN_PSBT,
+};
+const screen_t SCREEN_SCAN_CONFIRM_SEEDQR = {
+    .name = "SeedTranscribeSeedQRConfirmScanView", .enter = scan_enter, .render = scan_render,
+    .leave = scan_leave, .tick = scan_tick, .ctx = (void *)(intptr_t)SCAN_CONFIRM,
 };
 const screen_t SCREEN_SCAN_SEED = {
     .name = "ScanSeedQRView", .enter = scan_enter, .render = scan_render, .leave = scan_leave,

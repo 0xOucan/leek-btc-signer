@@ -29,9 +29,12 @@
 /* Sized for the vectors (the largest PSBT is 8.3 KB) and kept off the static
    image where large, so the suite also runs in the QEMU self-test image. */
 #define ARENA_SIZE (48 * 1024)
-#define BUF_SIZE (16 * 1024)
+/* Sized to the vectors (the largest PSBT is 5,663 bytes): the self-test
+   image holds every suite in internal RAM, without PSRAM, and this suite's
+   buffers are most of what is free when it runs. */
+#define BUF_SIZE (8 * 1024)
 #define PART_SIZE 4096
-#define PSBT_SIZE (10 * 1024)
+#define PSBT_SIZE (6 * 1024)
 static uint8_t *buf, *part, *raw, *got, *modules;
 static char *h;
 static uint8_t *arena;

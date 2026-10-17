@@ -147,6 +147,21 @@ FLOWS = {
         (["OK"], "ToolsAddressExplorerAddressListView"),
         (["HOLD"], "MainMenuView"),
     ],
+    # SeedSigner's test_transcribe_seedqr_and_verify, to the point a camera
+    # is needed: export abandon x11 about as a standard SeedQR.
+    "seedqr-transcribe": [
+        (["OK"], "ScanView"),
+        ([bytes(16)], "SeedFinalizeView", "fingerprint 73c5da0a"),
+        (["OK"], "SeedOptionsView"),
+        (["DOWN", "DOWN", "DOWN", "OK"], "SeedBackupView"),
+        (["DOWN", "OK"], "SeedTranscribeSeedQRFormatView"),
+        (["OK"], "SeedTranscribeSeedQRWarningView"),
+        (["OK"], "SeedTranscribeSeedQRWholeQRView", "seedqr 25x25"),
+        (["OK"], "SeedTranscribeSeedQRZoomedInView"),
+        (["DOWN"], "SeedTranscribeSeedQRZoomedInView", "zone A-2"),
+        (["OK"], "SeedTranscribeSeedQRConfirmQRPromptView"),
+        (["DOWN", "OK"], "SeedOptionsView"),
+    ],
     "scan-invalid": [
         (["OK"], "ScanView"),
         (["hello world"], "ScanInvalidQRTypeView", "invalid"),

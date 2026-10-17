@@ -14,7 +14,7 @@
 typedef struct {
     bool used;
     view_spec_t spec;
-    char name[40], title[32], headline[48], text[VIEW_TEXT_MAX];
+    char name[48], title[32], headline[48], text[VIEW_TEXT_MAX];
     char labels[VIEW_BUTTONS_MAX][VIEW_LABEL_MAX];
     const char *lines[VIEW_LINES_MAX];
     int len[VIEW_LINES_MAX];
