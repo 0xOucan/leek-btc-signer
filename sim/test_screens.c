@@ -63,14 +63,14 @@ static void test_notices(void)
         ui_render();
         CHECK(lit_pixels() > 0, "paged notice drew nothing");
         ui_input(IN_OK);
-        CHECK(strcmp(top(), "HOME") == 0 && oks == 1, "OK did not close and continue");
+        CHECK(strcmp(top(), "MainMenuView") == 0 && oks == 1, "OK did not close and continue");
     }
     /* A short body and BACK: closes without the continuation. */
     oks = 0;
     const notice_t s = { NOTICE_ERROR, NULL, NULL, "Short.", "Back", on_ok };
     ui_notice(&s);
     ui_input(IN_BACK);
-    CHECK(strcmp(top(), "HOME") == 0 && oks == 0, "BACK should close without continuing");
+    CHECK(strcmp(top(), "MainMenuView") == 0 && oks == 0, "BACK should close without continuing");
 }
 
 static size_t read_screen(struct quirc *q, uint8_t *out, size_t cap)
@@ -119,8 +119,8 @@ static void test_qr_screen(void)
     ui_init(&SCREEN_HOME);
     leaves = 0;
     qr_encode_seedqr(enc, s, buf, 4096);
-    ui_show_qr(enc, on_leave);
-    CHECK(strcmp(top(), "QR_DISPLAY") == 0, "QR screen did not open");
+    ui_show_qr("TestQRDisplayView", enc, on_leave);
+    CHECK(strcmp(top(), "TestQRDisplayView") == 0, "QR screen did not open");
     ui_render();
     const char *want = "000000000000000000000000000000000000000000000003";
     size_t n = read_screen(q, got, 4096);
@@ -135,14 +135,14 @@ static void test_qr_screen(void)
     ui_input(IN_DOWN);
     CHECK(strcmp(note_buf, "brightness 3") == 0, "note: %s", note_buf);
     ui_input(IN_BACK);
-    CHECK(strcmp(top(), "HOME") == 0 && leaves == 1, "BACK did not leave the QR screen");
+    CHECK(strcmp(top(), "MainMenuView") == 0 && leaves == 1, "BACK did not leave the QR screen");
     CHECK(brightness == QR_BRIGHTNESS_MAX, "brightness not restored");
 
     /* Animated: the screen's tick moves to the next part on time. */
     qr_encode_xpub_ur(enc, s, "m/84h/0h/0h", BTC_NET_MAIN, QR_DENSITY_LOW, buf, 4096);
     CHECK(qr_encoder_seq_len(enc) > 2, "expected an animated code");
     clock_ms = 5000;
-    ui_show_qr(enc, on_leave);
+    ui_show_qr("TestQRDisplayView", enc, on_leave);
     ui_render();
     size_t a = read_screen(q, got, 4096);
     char first[512];
@@ -157,7 +157,7 @@ static void test_qr_screen(void)
     CHECK(a > 20 && strncmp((char *)got, "UR:CRYPTO-ACCOUNT/2-", 20) == 0, "second frame: %.*s",
           (int)a, got);
     ui_input(IN_OK);
-    CHECK(strcmp(top(), "HOME") == 0 && leaves == 2, "OK did not leave");
+    CHECK(strcmp(top(), "MainMenuView") == 0 && leaves == 2, "OK did not leave");
 
     seed_clear(s);
     qr_encoder_wipe(enc);

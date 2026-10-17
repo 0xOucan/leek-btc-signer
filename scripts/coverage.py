@@ -37,17 +37,38 @@ AREAS = [("view.py", "System"), ("scan_views.py", "Scan"), ("seed_views.py", "Se
 
 # View -> the test that proves our equivalent. Only finished views go here.
 DONE = {
-    "MainMenuView": "HOME: sim/test_ui.c; qemu-flow home-menus",
+    # System and menus
+    "MainMenuView": "sim/test_ui.c; qemu-flow home-menus",
     "BackStackView": "the screen stack: sim/test_ui.c (ten levels, BACK and HOLD)",
-    "NotYetImplementedView": "the placeholder screens: sim/test_ui.c walks every one",
+    "NotYetImplementedView": "placeholders naming the View not ported yet: sim/test_ui.c, test_seed_flows.c",
     "ErrorView": "status screens: sim/test_screens.c; Wrong QR Type in qemu-flow",
-    "LoadSeedView": "LOAD_SEED, SeedSigner's menu with Electrum off (its default): qemu-flow home-menus",
-    "ScanView": "SCAN: sim/test_scan.c (every recorded scan); qemu-flow scan-*",
-    "ScanSeedQRView": "SCAN_SEED: sim/test_scan.c; qemu-flow scan-seedqr-wrong-type",
-    "ScanInvalidQRTypeView": "invalid code: sim/test_scan.c; qemu-flow scan-invalid",
-    "ToolsMenuView": "TOOLS, SeedSigner's five entries: qemu-flow home-menus",
-    "IOTestView": "IO_TEST: qemu-flow io-test",
-    "VersionView": "VERSION: qemu-flow home-menus",
+    "LoadSeedView": "SeedSigner's menu with Electrum off (its default): test_seed_flows.c; qemu-flow",
+    "ToolsMenuView": "SeedSigner's five entries: qemu-flow home-menus",
+    "IOTestView": "qemu-flow io-test",
+    "VersionView": "qemu-flow home-menus",
+    # Scanning
+    "ScanView": "sim/test_scan.c (every recorded scan); qemu-flow scan-*, seed-lifecycle",
+    "ScanSeedQRView": "sim/test_scan.c; qemu-flow scan-seedqr-wrong-type",
+    "ScanInvalidQRTypeView": "sim/test_scan.c; qemu-flow scan-invalid",
+    # Seeds: SeedSigner's tests/test_flows_seed.py, ported in sim/test_seed_flows.c
+    "SeedsMenuView": "test_seed_flows.c (redirect with no seeds, list with one); qemu-flow seed-lifecycle",
+    "SeedMnemonicEntryView": "test_mnemonic_entry_flow, 12 and 24 words typed key by key: test_seed_flows.c",
+    "SeedMnemonicInvalidView": "test_invalid_mnemonic: test_seed_flows.c",
+    "SeedFinalizeView": "test_scan_seedqr_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
+    "SeedAddPassphraseView": "test_passphrase_entry_flow, typed on the wheel: test_seed_flows.c",
+    "SeedAddPassphraseExitDialogView": "test_passphrase_entry_flow (discard, edit, skip): test_seed_flows.c",
+    "SeedReviewPassphraseView": "test_passphrase_entry_flow: test_seed_flows.c",
+    "SeedOptionsView": "test_seed_flows.c; qemu-flow seed-lifecycle",
+    "SeedDiscardView": "test_discard_seed_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
+    "SeedBackupView": "test_seed_flows.c",
+    "SeedWordsWarningView": "test_seed_flows.c",
+    "SeedWordsView": "pages of four words, BACK pages back: test_seed_flows.c",
+    "SeedExportXpubSigTypeView": "test_export_xpub_standard_flow, all 21 combinations: test_seed_flows.c",
+    "SeedExportXpubScriptTypeView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
+    "SeedExportXpubQRFormatView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
+    "SeedExportXpubWarningView": "test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
+    "SeedExportXpubDetailsView": "BIP-84 zpub on the firmware: qemu-flow seed-lifecycle; test_seed_flows.c",
+    "SeedExportXpubQRDisplayView": "parts identical to SeedSigner's (test_qr_encode.c); qemu-flow seed-lifecycle",
 }
 
 

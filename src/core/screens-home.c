@@ -10,15 +10,14 @@
 #include <stdio.h>
 
 #include "theme.h"
+#include "views-seed.h"
 
 /* ---- Not built yet ---------------------------------------------------- */
 
 #define PENDING(id_, title_, body_)                                         \
     static const message_t id_##_msg = { (title_), (body_) };              \
-    static const screen_t id_ = SCREEN_MESSAGE(#id_, id_##_msg)
+    static const screen_t id_ = SCREEN_MESSAGE("NotYetImplementedView", id_##_msg)
 
-PENDING(WORDS12_PENDING, "12-word seed", "Arrives with T34.");
-PENDING(WORDS24_PENDING, "24-word seed", "Arrives with T34.");
 PENDING(CAMERA_SEED_PENDING, "New seed",
         "Camera entropy arrives with T52.");
 PENDING(DICE_PENDING, "New seed", "Dice rolls arrive with T35.");
@@ -86,14 +85,14 @@ static bool io_input(const screen_t *s, input_ev_t ev)
 }
 
 static const screen_t IO_TEST = {
-    .name = "IO_TEST", .enter = io_enter, .render = io_render, .input = io_input,
+    .name = "IOTestView", .enter = io_enter, .render = io_render, .input = io_input,
 };
 
 /* ---- Version ---------------------------------------------------------- */
 
 static char version_text[160] = "Unknown";
 static const message_t version_msg = { "Version", version_text };
-static const screen_t VERSION = SCREEN_MESSAGE("VERSION", version_msg);
+static const screen_t VERSION = SCREEN_MESSAGE("VersionView", version_msg);
 
 void screens_set_version(const char *version, const char *board,
                          const char *profile, const char *image)
@@ -106,38 +105,42 @@ void screens_set_version(const char *version, const char *board,
 /* ---- Menus ------------------------------------------------------------ */
 
 static const menu_item_t tools_items[] = {
-    { "New seed (camera)", &CAMERA_SEED_PENDING },
-    { "New seed (dice)", &DICE_PENDING },
-    { "Calc 12th/24th word", &FINAL_WORD_PENDING },
-    { "Address explorer", &EXPLORER_PENDING },
-    { "Verify address", &VERIFY_PENDING },
+    { "New seed (camera)", &CAMERA_SEED_PENDING, NULL },
+    { "New seed (dice)", &DICE_PENDING, NULL },
+    { "Calc 12th/24th word", &FINAL_WORD_PENDING, NULL },
+    { "Address explorer", &EXPLORER_PENDING, NULL },
+    { "Verify address", &VERIFY_PENDING, NULL },
 };
 static menu_t tools_menu = { "Tools", tools_items, 5, 0, 0 };
-static const screen_t TOOLS = SCREEN_MENU("TOOLS", tools_menu);
+static const screen_t TOOLS = SCREEN_MENU("ToolsMenuView", tools_menu);
 
+static void enter_12(void) { SeedMnemonicEntryView(12); }
+static void enter_24(void) { SeedMnemonicEntryView(24); }
+
+/* LoadSeedView, with Electrum seeds off (SeedSigner's default). */
 static const menu_item_t load_items[] = {
-    { "Scan a SeedQR", &SCREEN_SCAN_SEED },
-    { "Enter 12-word seed", &WORDS12_PENDING },
-    { "Enter 24-word seed", &WORDS24_PENDING },
-    { "Create a seed", &TOOLS },
+    { "Scan a SeedQR", &SCREEN_SCAN_SEED, NULL },
+    { "Enter 12-word seed", NULL, enter_12 },
+    { "Enter 24-word seed", NULL, enter_24 },
+    { "Create a seed", &TOOLS, NULL },
 };
 static menu_t load_menu = { "Load A Seed", load_items, 4, 0, 0 };
-static const screen_t LOAD_SEED = SCREEN_MENU("LOAD_SEED", load_menu);
+const screen_t SCREEN_LOAD_SEED = SCREEN_MENU("LoadSeedView", load_menu);
 
 static const menu_item_t settings_items[] = {
-    { "Advanced", &ADVANCED_PENDING },
-    { "Hardware", &HARDWARE_PENDING },
-    { "I/O test", &IO_TEST },
-    { "Version", &VERSION },
+    { "Advanced", &ADVANCED_PENDING, NULL },
+    { "Hardware", &HARDWARE_PENDING, NULL },
+    { "I/O test", &IO_TEST, NULL },
+    { "Version", &VERSION, NULL },
 };
 static menu_t settings_menu = { "Settings", settings_items, 4, 0, 0 };
-static const screen_t SETTINGS = SCREEN_MENU("SETTINGS", settings_menu);
+static const screen_t SETTINGS = SCREEN_MENU("SettingsMenuView", settings_menu);
 
 static const menu_item_t home_items[] = {
-    { "Scan", &SCREEN_SCAN },
-    { "Seeds", &LOAD_SEED },
-    { "Tools", &TOOLS },
-    { "Settings", &SETTINGS },
+    { "Scan", &SCREEN_SCAN, NULL },
+    { "Seeds", NULL, SeedsMenuView },
+    { "Tools", &TOOLS, NULL },
+    { "Settings", &SETTINGS, NULL },
 };
 static menu_t home_menu = { "Home", home_items, 4, 0, 0 };
-const screen_t SCREEN_HOME = SCREEN_MENU("HOME", home_menu);
+const screen_t SCREEN_HOME = SCREEN_MENU("MainMenuView", home_menu);

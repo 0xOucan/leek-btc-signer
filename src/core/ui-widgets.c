@@ -190,7 +190,9 @@ bool menu_input(const screen_t *s, input_ev_t ev)
         }
         return true;
     case IN_OK:
-        if (m->items[m->sel].next) {
+        if (m->items[m->sel].action) {
+            m->items[m->sel].action();
+        } else if (m->items[m->sel].next) {
             ui_push(m->items[m->sel].next);
         }
         return true;

@@ -31,9 +31,10 @@ int ui_notice_lines(void);
 
 /* Full-screen QR (SeedSigner's QRDisplayScreen): animated codes advance on
  * the screen's tick, UP and DOWN set the brightness, OK and BACK leave.
+ * `name` is the SeedSigner View it stands for ("SeedExportXpubQRDisplayView").
  * `on_leave` runs as it closes, for the caller to wipe the encoder. */
 #define QR_BRIGHTNESS_MAX 4
-void ui_show_qr(qr_encoder_t *enc, void (*on_leave)(void));
+void ui_show_qr(const char *name, qr_encoder_t *enc, void (*on_leave)(void));
 
 /* Draw a "Working..." frame and push it to the panel now, before a slow
  * step that blocks the UI loop. */

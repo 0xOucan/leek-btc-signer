@@ -22,6 +22,7 @@
 #include "screens.h"
 #include "screens-common.h"
 #include "secmem.h"
+#include "settings.h"
 #include "ui.h"
 #if defined(LBS_QEMU_HARNESS)
 #include "qemu-harness.h"
@@ -88,6 +89,7 @@ void app_main(void)
     }
 
     sec_set_backend(&SEC_INTERNAL);
+    settings_reset();
     input_queue_init();
     /* Headless is a working state, not a failure: a loose wire should give
      * a dark screen and a log line, not a board that looks dead. */

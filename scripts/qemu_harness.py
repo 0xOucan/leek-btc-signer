@@ -2,9 +2,9 @@
 Drive the s3cam-qemu firmware through the UART harness (docs/TESTING.md).
 
     with Device() as dev:
-        dev.wait_screen("HOME")
+        dev.wait_screen("MainMenuView")
         dev.key("DOWN"); dev.key("OK")
-        dev.wait_screen("LOAD_SEED")
+        dev.wait_screen("LoadSeedView")
         dev.save_frame("load.ppm")
         dev.qr(b"...")              # a scanned frame, on a Scan screen
 

@@ -7,18 +7,18 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**11 of 109 views: 10.1%.**
+**29 of 109 views: 26.6%.**
 
 ## System: 4 of 12
 
 | View | Done | Evidence |
 |---|---|---|
 | `BackStackView` | ✅ | the screen stack: sim/test_ui.c (ten levels, BACK and HOLD) |
-| `MainMenuView` | ✅ | HOME: sim/test_ui.c; qemu-flow home-menus |
+| `MainMenuView` | ✅ | sim/test_ui.c; qemu-flow home-menus |
 | `PowerOptionsView` |  |  |
 | `RestartView` |  |  |
 | `PowerOffView` |  |  |
-| `NotYetImplementedView` | ✅ | the placeholder screens: sim/test_ui.c walks every one |
+| `NotYetImplementedView` | ✅ | placeholders naming the View not ported yet: sim/test_ui.c, test_seed_flows.c |
 | `ErrorView` | ✅ | status screens: sim/test_screens.c; Wrong QR Type in qemu-flow |
 | `NetworkMismatchErrorView` |  |  |
 | `UnhandledExceptionView` |  |  |
@@ -30,39 +30,39 @@ writes this page and the README chart.
 
 | View | Done | Evidence |
 |---|---|---|
-| `ScanView` | ✅ | SCAN: sim/test_scan.c (every recorded scan); qemu-flow scan-* |
+| `ScanView` | ✅ | sim/test_scan.c (every recorded scan); qemu-flow scan-*, seed-lifecycle |
 | `ScanPSBTView` |  |  |
-| `ScanSeedQRView` | ✅ | SCAN_SEED: sim/test_scan.c; qemu-flow scan-seedqr-wrong-type |
+| `ScanSeedQRView` | ✅ | sim/test_scan.c; qemu-flow scan-seedqr-wrong-type |
 | `ScanWalletDescriptorView` |  |  |
 | `ScanAddressView` |  |  |
-| `ScanInvalidQRTypeView` | ✅ | invalid code: sim/test_scan.c; qemu-flow scan-invalid |
+| `ScanInvalidQRTypeView` | ✅ | sim/test_scan.c; qemu-flow scan-invalid |
 
-## Seeds: 1 of 48
+## Seeds: 19 of 48
 
 | View | Done | Evidence |
 |---|---|---|
-| `SeedsMenuView` |  |  |
+| `SeedsMenuView` | ✅ | test_seed_flows.c (redirect with no seeds, list with one); qemu-flow seed-lifecycle |
 | `SeedSelectSeedView` |  |  |
-| `LoadSeedView` | ✅ | LOAD_SEED, SeedSigner's menu with Electrum off (its default): qemu-flow home-menus |
-| `SeedMnemonicEntryView` |  |  |
-| `SeedMnemonicInvalidView` |  |  |
-| `SeedFinalizeView` |  |  |
-| `SeedAddPassphraseView` |  |  |
-| `SeedAddPassphraseExitDialogView` |  |  |
-| `SeedReviewPassphraseView` |  |  |
-| `SeedDiscardView` |  |  |
+| `LoadSeedView` | ✅ | SeedSigner's menu with Electrum off (its default): test_seed_flows.c; qemu-flow |
+| `SeedMnemonicEntryView` | ✅ | test_mnemonic_entry_flow, 12 and 24 words typed key by key: test_seed_flows.c |
+| `SeedMnemonicInvalidView` | ✅ | test_invalid_mnemonic: test_seed_flows.c |
+| `SeedFinalizeView` | ✅ | test_scan_seedqr_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
+| `SeedAddPassphraseView` | ✅ | test_passphrase_entry_flow, typed on the wheel: test_seed_flows.c |
+| `SeedAddPassphraseExitDialogView` | ✅ | test_passphrase_entry_flow (discard, edit, skip): test_seed_flows.c |
+| `SeedReviewPassphraseView` | ✅ | test_passphrase_entry_flow: test_seed_flows.c |
+| `SeedDiscardView` | ✅ | test_discard_seed_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
 | `SeedElectrumMnemonicStartView` |  |  |
-| `SeedOptionsView` |  |  |
-| `SeedBackupView` |  |  |
-| `SeedExportXpubSigTypeView` |  |  |
-| `SeedExportXpubScriptTypeView` |  |  |
+| `SeedOptionsView` | ✅ | test_seed_flows.c; qemu-flow seed-lifecycle |
+| `SeedBackupView` | ✅ | test_seed_flows.c |
+| `SeedExportXpubSigTypeView` | ✅ | test_export_xpub_standard_flow, all 21 combinations: test_seed_flows.c |
+| `SeedExportXpubScriptTypeView` | ✅ | test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
 | `SeedExportXpubCustomDerivationView` |  |  |
-| `SeedExportXpubQRFormatView` |  |  |
-| `SeedExportXpubWarningView` |  |  |
-| `SeedExportXpubDetailsView` |  |  |
-| `SeedExportXpubQRDisplayView` |  |  |
-| `SeedWordsWarningView` |  |  |
-| `SeedWordsView` |  |  |
+| `SeedExportXpubQRFormatView` | ✅ | test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
+| `SeedExportXpubWarningView` | ✅ | test_export_xpub_standard_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
+| `SeedExportXpubDetailsView` | ✅ | BIP-84 zpub on the firmware: qemu-flow seed-lifecycle; test_seed_flows.c |
+| `SeedExportXpubQRDisplayView` | ✅ | parts identical to SeedSigner's (test_qr_encode.c); qemu-flow seed-lifecycle |
+| `SeedWordsWarningView` | ✅ | test_seed_flows.c |
+| `SeedWordsView` | ✅ | pages of four words, BACK pages back: test_seed_flows.c |
 | `SeedBIP85SelectNumWordsView` |  |  |
 | `SeedBIP85SelectChildIndexView` |  |  |
 | `SeedBIP85InvalidChildIndexView` |  |  |
@@ -118,7 +118,7 @@ writes this page and the README chart.
 
 | View | Done | Evidence |
 |---|---|---|
-| `ToolsMenuView` | ✅ | TOOLS, SeedSigner's five entries: qemu-flow home-menus |
+| `ToolsMenuView` | ✅ | SeedSigner's five entries: qemu-flow home-menus |
 | `ToolsImageEntropyLivePreviewView` |  |  |
 | `ToolsImageEntropyFinalImageView` |  |  |
 | `ToolsImageEntropyMnemonicLengthView` |  |  |
@@ -143,9 +143,9 @@ writes this page and the README chart.
 | `SettingsEntryUpdateSelectionView` |  |  |
 | `SettingsSelectionRequiredWarningView` |  |  |
 | `SettingsIngestSettingsQRView` |  |  |
-| `IOTestView` | ✅ | IO_TEST: qemu-flow io-test |
+| `IOTestView` | ✅ | qemu-flow io-test |
 | `DonateView` |  |  |
-| `VersionView` | ✅ | VERSION: qemu-flow home-menus |
+| `VersionView` | ✅ | qemu-flow home-menus |
 
 ## Splash: 0 of 1
 

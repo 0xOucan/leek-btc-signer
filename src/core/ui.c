@@ -68,7 +68,31 @@ void ui_set_hold_handler(void (*fn)(void))
     hold_handler = fn ? fn : ui_home;
 }
 
+static void (*after_fn)(void);
+
+void ui_after(void (*fn)(void))
+{
+    after_fn = fn;
+}
+
+static void run_after(void)
+{
+    void (*fn)(void) = after_fn;
+    after_fn = NULL;
+    if (fn) {
+        fn();
+    }
+}
+
+static void input_inner(input_ev_t ev);
+
 void ui_input(input_ev_t ev)
+{
+    input_inner(ev);
+    run_after();
+}
+
+static void input_inner(input_ev_t ev)
 {
     if (depth == 0 || ev == IN_NONE) {
         return;
@@ -101,7 +125,12 @@ const screen_t *ui_top(void) { return depth ? stack[depth - 1] : NULL; }
 bool ui_tick(void)
 {
     const screen_t *s = ui_top();
-    return s && s->tick ? s->tick(s) : false;
+    const bool redraw = s && s->tick ? s->tick(s) : false;
+    if (after_fn) {
+        run_after();
+        return true;
+    }
+    return redraw;
 }
 
 bool ui_wants_tick(void)

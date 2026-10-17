@@ -288,13 +288,14 @@ static void qr_leave(const screen_t *s)
     }
 }
 
-static const screen_t QR_DISPLAY = {
-    .name = "QR_DISPLAY", .enter = qr_enter, .render = qr_render, .input = qr_input,
+static screen_t QR_DISPLAY = {
+    .name = "QRDisplayScreen", .enter = qr_enter, .render = qr_render, .input = qr_input,
     .leave = qr_leave, .tick = qr_tick,
 };
 
-void ui_show_qr(qr_encoder_t *enc, void (*on_leave)(void))
+void ui_show_qr(const char *name, qr_encoder_t *enc, void (*on_leave)(void))
 {
+    QR_DISPLAY.name = name ? name : "QRDisplayScreen";
     qrd.enc = enc;
     qrd.on_leave = on_leave;
     if (qrd.brightness == 0) {

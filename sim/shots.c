@@ -48,7 +48,7 @@ static void walk(int depth)
         if (ui_depth() == d + 1) {
             walk(depth + 1);
             /* The I/O test counts BACK rather than obeying it. */
-            if (strcmp(ui_top()->name, "IO_TEST") == 0) ui_pop(); else ui_input(IN_BACK);
+            if (strcmp(ui_top()->name, "IOTestView") == 0) ui_pop(); else ui_input(IN_BACK);
         }
         ui_input(IN_DOWN);
         if (i + 1 < m->n) save();   /* the menu with each row selected */

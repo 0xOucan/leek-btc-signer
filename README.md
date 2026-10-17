@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  ██░░░░░░░░░░░░░░░░░░  11 of 109 views (10%)
+SeedSigner  █████░░░░░░░░░░░░░░░  29 of 109 views (27%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
@@ -68,10 +68,10 @@ are screens on top of it.
 
 | Feature | SeedSigner | Leek BTC Signer |
 |---|---|---|
-| SeedQR, CompactSeedQR: scan and show | ✅ | 🟡 logic done, matches SeedSigner; screens next |
-| Seeds from words, dice, coin flips | ✅ | 🟡 logic done; screens next |
-| BIP-39 passphrase | ✅ | 🟡 logic and the character wheel done; screen next |
-| xpub export: static, Specter, animated UR | ✅ | 🟡 output identical to SeedSigner's; screens next |
+| SeedQR, CompactSeedQR: scan and show | ✅ | 🟡 scan to a loaded seed done; showing a SeedQR next |
+| Seeds from words, dice, coin flips | ✅ | 🟡 typing 12 or 24 words done; dice and coin flips next |
+| BIP-39 passphrase | ✅ | ✅ add, review, edit, discard, as SeedSigner's flow |
+| xpub export: static, Specter, animated UR | ✅ | ✅ the whole flow, all 21 of SeedSigner's combinations |
 | PSBT scan: UR, BBQr, Specter, base64, base43 | ✅ | 🟡 Scan screen works end to end in QEMU, matching SeedSigner frame by frame; camera needs the board |
 | PSBT review and the anti-forgery checks | ✅ | ✅ matches, plus three stricter refusals (below); amounts display as SeedSigner's |
 | PSBT signing: segwit, nested, legacy, taproot | ✅ | ✅ byte-identical signed PSBTs (taproot verified) |

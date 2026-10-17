@@ -19,11 +19,14 @@
 
 #define N(a) (sizeof(a) / sizeof((a)[0]))
 
-static char last_note[200];
+static char last_note[200], seed_note[200];
 
 static void note(const char *n)
 {
     snprintf(last_note, sizeof last_note, "%s", n);
+    if (strncmp(n, "seed", 4) == 0) {
+        snprintf(seed_note, sizeof seed_note, "%s", n);
+    }
 }
 
 /* A recording allocator: what the screens ask sec_alloc() for. */
@@ -61,7 +64,7 @@ static void open_scan(void)
 {
     ui_init(&SCREEN_HOME);
     ui_input(IN_OK);
-    CHECK(strcmp(ui_top()->name, "SCAN") == 0, "Scan did not open");
+    CHECK(strcmp(ui_top()->name, "ScanView") == 0, "Scan did not open");
 }
 
 static uint8_t *psbt;
@@ -77,11 +80,13 @@ static void test_recorded_scans(void)
             continue;
         }
         open_scan();
-        for (unsigned f = 0; f < s->n_frames && strcmp(ui_top()->name, "SCAN") == 0; f++) {
+        for (unsigned f = 0; f < s->n_frames && strcmp(ui_top()->name, "ScanView") == 0; f++) {
             feed(s->frames[f].data, s->frames[f].len);
         }
-        CHECK(strcmp(ui_top()->name, "SCAN_RESULT") == 0, "%s: no result", s->name);
         if (is_psbt) {
+            const bool readable = strcmp(s->name, "bbqr_truncated_zlib") != 0;
+            CHECK(strcmp(ui_top()->name, readable ? "NotYetImplementedView" : "ErrorView") == 0,
+                  "%s: on %s", s->name, ui_top()->name);
             const size_t n = strlen(s->psbt) / 2;
             for (size_t k = 0; k < n; k++) {
                 unsigned v;
@@ -102,12 +107,15 @@ static void test_recorded_scans(void)
             CHECK(strcmp(last_note, want) == 0, "%s: note \"%s\", want \"%s\"", s->name, last_note, want);
             psbts++;
         } else {
-            CHECK(strncmp(last_note, "seed ", 5) == 0 || strncmp(last_note, "seed-invalid", 12) == 0,
-                  "%s: note \"%s\"", s->name, last_note);
+            const bool valid = strncmp(seed_note, "seed ", 5) == 0;
+            CHECK(valid || strncmp(seed_note, "seed-invalid", 12) == 0, "%s: note \"%s\"", s->name, seed_note);
+            /* A valid seed goes on to be finalised, as from SeedSigner's ScanView. */
+            CHECK(strcmp(ui_top()->name, valid ? "SeedFinalizeView" : "ErrorView") == 0,
+                  "%s: on %s", s->name, ui_top()->name);
             seeds++;
         }
         ui_input(IN_BACK);
-        CHECK(strcmp(ui_top()->name, "HOME") == 0, "%s: BACK did not go home", s->name);
+        CHECK(strcmp(ui_top()->name, "MainMenuView") == 0, "%s: BACK did not go home", s->name);
     }
     printf("   %u PSBT scans and %u seed scans end on the right result\n", psbts, seeds);
 }
@@ -119,19 +127,19 @@ static void test_flows(void)
 
     open_scan();
     feed((const char *)zero, sizeof zero);
-    CHECK(strcmp(last_note, "seed 12 73c5da0a") == 0, "CompactSeedQR: %s", last_note);
+    CHECK(strcmp(seed_note, "seed 12 73c5da0a") == 0, "CompactSeedQR: %s", seed_note);
 
     /* Scan a SeedQR refuses an address with SeedSigner's message. */
     ui_init(&SCREEN_HOME);
     ui_input(IN_DOWN);
     ui_input(IN_OK);
     ui_input(IN_OK);
-    CHECK(strcmp(ui_top()->name, "SCAN_SEED") == 0, "Scan a SeedQR did not open");
+    CHECK(strcmp(ui_top()->name, "ScanSeedQRView") == 0, "Scan a SeedQR did not open");
     const char *a = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu";
     feed(a, (unsigned)strlen(a));
     CHECK(strcmp(last_note, "wrong-type bitcoin_address") == 0, "wrong type: %s", last_note);
     ui_input(IN_BACK);
-    CHECK(strcmp(ui_top()->name, "LOAD_SEED") == 0, "BACK from the result");
+    CHECK(strcmp(ui_top()->name, "LoadSeedView") == 0, "BACK from the result");
 
     open_scan();
     feed("hello world", 11);
@@ -149,7 +157,7 @@ static void test_flows(void)
         open_scan();
         feed(ur->frames[0].data, ur->frames[0].len);
         feed(a, (unsigned)strlen(a));
-        CHECK(strcmp(ui_top()->name, "SCAN") == 0, "a stray frame ended the scan");
+        CHECK(strcmp(ui_top()->name, "ScanView") == 0, "a stray frame ended the scan");
         CHECK(strncmp(last_note, "frame 6 ", 8) == 0, "stray frame note: %s", last_note);
         for (unsigned f = 1; f < ur->n_frames; f++) {
             feed(ur->frames[f].data, ur->frames[f].len);
@@ -163,10 +171,10 @@ static void test_flows(void)
         feed(ur->frames[0].data, ur->frames[0].len);
     }
     ui_input(IN_BACK);
-    CHECK(strcmp(ui_top()->name, "HOME") == 0, "BACK did not leave the scan");
+    CHECK(strcmp(ui_top()->name, "MainMenuView") == 0, "BACK did not leave the scan");
     open_scan();
     ui_input(IN_HOLD);
-    CHECK(strcmp(ui_top()->name, "HOME") == 0, "HOLD did not go home");
+    CHECK(strcmp(ui_top()->name, "MainMenuView") == 0, "HOLD did not go home");
 
     /* Frames that arrived before the screen opened are not decoded. */
     ui_init(&SCREEN_HOME);
@@ -186,7 +194,7 @@ static void test_secret_placement(void)
     sec_calls = sec_internal = sec_live = 0;
     open_scan();
     feed((const char *)zero, sizeof zero);
-    CHECK(strcmp(last_note, "seed 12 73c5da0a") == 0, "seed scan: %s", last_note);
+    CHECK(strcmp(seed_note, "seed 12 73c5da0a") == 0, "seed scan: %s", seed_note);
     CHECK(sec_calls >= 2, "the decoder and the seed did not come from sec_alloc (%u calls)", sec_calls);
     CHECK(sec_internal == sec_calls, "a secret was allowed outside internal RAM");
     CHECK(sec_live == 0, "%u secret allocations were not freed", sec_live);

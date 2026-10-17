@@ -247,3 +247,17 @@ on the host and in QEMU.
 | Open | Investigating | `test_qr_view` passes on the host on all five profiles, at the device's 2x read scale and with quirc in single precision as the firmware builds it, but in the QEMU self-test quirc misses the static SeedQR, CompactSeedQR and xpub codes (the animated PSBT frames read). Out of the self-test list until understood; the encoder itself is checked module for module against python-qrcode |
 | T33 | Done | `secmem.c`: secrets come from internal RAM only (ESP: `MALLOC_CAP_INTERNAL`, never PSRAM) and are wiped on free. A scanned seed never enters the decoder's arena, which may be PSRAM; `test_qr_decode` proves the arena untouched for every seed format, `test_scan` proves the Scan screen's decoder and seed came from `sec_alloc` and went back |
 | Found by QEMU | Fixed | The Scan screen sized its PSBT buffer to its whole arena, which a board short of RAM could not give; it is now bounded by the scan (`qr_decoder_psbt_max`), checked against every recorded PSBT |
+
+### 2026-10-17: Phase 4 begins, measured in SeedSigner views
+
+Progress is now counted in SeedSigner's views (`docs/COVERAGE.md`). This step adds 18:
+the seeds menu, typing a 12- or 24-word seed (LeekWallet's word entry, carried
+over with its suite), the invalid-checksum dialog, finalising with or without a
+BIP-39 passphrase (add, review, edit, discard, skip), seed options, discarding,
+viewing the backup words, and the whole export-xpub flow. `sim/test_seed_flows.c`
+ports SeedSigner's own `tests/test_flows_seed.py` cases step for step, pressing
+the keys a user would (all 21 sig/script/format combinations of the xpub
+export), and `qemu-flow.py seed-lifecycle` runs scan, finalise, export (the
+BIP-84 zpub on the firmware) and discard on the Xtensa image. Screens now carry
+SeedSigner's View names. Settings live in RAM with SeedSigner's defaults; seeds
+in `seed-storage.c`, internal RAM only. 29 of 109 views.

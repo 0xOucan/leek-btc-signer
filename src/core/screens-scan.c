@@ -25,6 +25,9 @@
 #include "qr-decode.h"
 #include "qr-source.h"
 #include "secmem.h"
+#include "seed-storage.h"
+#include "settings.h"
+#include "views-seed.h"
 #include "theme.h"
 #include "wally_core.h"
 #include "wally_crypto.h"
@@ -52,10 +55,16 @@ static struct {
 static char result_title[24];
 static char result_body[200];
 static const message_t result_msg = { result_title, result_body };
-static const screen_t SCAN_RESULT = SCREEN_MESSAGE("SCAN_RESULT", result_msg);
+/* Named after the SeedSigner View it stands for, set with the text. */
+static screen_t SCAN_RESULT = SCREEN_MESSAGE("NotYetImplementedView", result_msg);
 
 static void result(const char *title, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
+
+static void result_view(const char *view)
+{
+    SCAN_RESULT.name = view;
+}
 
 static void result(const char *title, const char *fmt, ...)
 {
@@ -72,15 +81,18 @@ static bool kind_ok(qr_type_t t)
            (scan.kind == SCAN_SEED && qr_is_seed(t));
 }
 
-/* Describe a complete scan. Nothing secret goes in the text or the note. */
-static void describe(void)
+/* Route a complete scan. A seed goes on to SeedFinalizeView, as from
+   SeedSigner's ScanView; anything else gets a result screen. Returns false
+   when the seed route was taken. Nothing secret goes in a text or a note. */
+static bool describe(void)
 {
     const qr_type_t t = scan.dec->type;
     if (!kind_ok(t)) {
         result("Error", "Wrong QR Type\n\nExpected a %s, received \"%s\" format.",
                scan.kind == SCAN_PSBT ? "transaction" : "SeedQR", qr_type_name(t));
+        result_view("ErrorView");
         ui_note("wrong-type %s", qr_type_name(t));
-        return;
+        return true;
     }
     if (qr_is_seed(t)) {
         uint16_t words[SEED_MAX_WORDS];
@@ -90,6 +102,7 @@ static void describe(void)
         char fp[9] = "";
         if (ok) {
             seed_fingerprint_hex(s, fp);
+            storage_set_pending(s);     /* set_pending_seed() */
         }
         if (s) {
             seed_clear(s);
@@ -97,15 +110,15 @@ static void describe(void)
         }
         wally_bzero(words, sizeof words);
         if (!ok) {
+            /* SeedSigner raises here (Seed() refuses the checksum). */
             result("Error", "Invalid seed\n\nThe %u words do not form a valid BIP-39 mnemonic.",
                    (unsigned)n);
+            result_view("ErrorView");
             ui_note("seed-invalid %u", (unsigned)n);
-            return;
+            return true;
         }
-        result("Seed", "%u-word seed\nFingerprint %s\n\nLoading it arrives with T34.",
-               (unsigned)n, fp);
         ui_note("seed %u %s", (unsigned)n, fp);
-        return;
+        return false;
     }
     if (qr_is_psbt(t)) {
         size_t n = 0;
@@ -119,34 +132,41 @@ static void describe(void)
         free(p);
         if (!ok) {
             result("Error", "The transaction could not be read.");
+            result_view("ErrorView");
             ui_note("psbt-unreadable");
-            return;
+            return true;
         }
         result("PSBT", "Transaction received\n%u bytes\n\nReview and signing arrive with T37.",
                (unsigned)n);
+        result_view("NotYetImplementedView");
         ui_note("psbt %u %02x%02x%02x%02x", (unsigned)n, h[0], h[1], h[2], h[3]);
-        return;
+        return true;
     }
     if (t == QR_TYPE_BITCOIN_ADDRESS) {
         btc_script_t script;
         btc_net_t net;
         const char *a = qr_decoder_address(scan.dec, &script, &net);
         result("Address", "%s\n\nVerifying it arrives with T40.", a);
+        result_view("NotYetImplementedView");
         ui_note("address %s %d %d", a, (int)script, (int)net);
-        return;
+        return true;
     }
     if (t == QR_TYPE_SETTINGS) {
         result("Settings", "SettingsQR received.\n\nApplying it arrives with T41.");
+        result_view("NotYetImplementedView");
         ui_note("settings");
-        return;
+        return true;
     }
     if (t == QR_TYPE_SIGN_MESSAGE) {
         result("Sign message", "Request received.\n\nMessage signing arrives with T49.");
+        result_view("NotYetImplementedView");
         ui_note("signmessage");
-        return;
+        return true;
     }
     result("Scan", "Received \"%s\".\n\nUsing it arrives with T47.", qr_type_name(t));
+    result_view("NotYetImplementedView");
     ui_note("other %s", qr_type_name(t));
+    return true;
 }
 
 /* ---- The scan screen ---------------------------------------------------- */
@@ -237,17 +257,27 @@ static bool scan_tick(const screen_t *s)
                 qr_decoder_percent(scan.dec, true));
         changed = true;
         if (st == QR_STATUS_COMPLETE) {
-            describe();
-            ui_replace(&SCAN_RESULT);       /* leaves this screen: wipes */
+            if (describe()) {
+                ui_replace(&SCAN_RESULT);   /* leaves this screen: wipes */
+            } else {
+                ui_pop();
+                if (SETTINGS.passphrase == OPT_REQUIRED) {
+                    SeedAddPassphraseView();
+                } else {
+                    SeedFinalizeView();
+                }
+            }
             return true;
         }
         if (st == QR_STATUS_INVALID) {
+            result_view("ScanInvalidQRTypeView");
             result("Error", "Unknown QR Type\n\nQRCode is invalid or is a data format not yet supported.");
             ui_note("invalid");
             ui_replace(&SCAN_RESULT);
             return true;
         }
         if (st == QR_STATUS_UNSUPPORTED) {
+            result_view("NotYetImplementedView");
             result("Not yet", "Wallet descriptors arrive with multisig, T47.");
             ui_note("unsupported %s", qr_type_name(scan.dec->type));
             ui_replace(&SCAN_RESULT);
@@ -259,14 +289,14 @@ static bool scan_tick(const screen_t *s)
 }
 
 const screen_t SCREEN_SCAN = {
-    .name = "SCAN", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
+    .name = "ScanView", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
     .tick = scan_tick, .ctx = (void *)(intptr_t)SCAN_ANY,
 };
 const screen_t SCREEN_SCAN_PSBT = {
-    .name = "SCAN_PSBT", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
+    .name = "ScanPSBTView", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
     .tick = scan_tick, .ctx = (void *)(intptr_t)SCAN_PSBT,
 };
 const screen_t SCREEN_SCAN_SEED = {
-    .name = "SCAN_SEED", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
+    .name = "ScanSeedQRView", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
     .tick = scan_tick, .ctx = (void *)(intptr_t)SCAN_SEED,
 };

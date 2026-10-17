@@ -25,54 +25,78 @@ def recorded(name):
     device completes it) and expect the PSBT SeedSigner got from it."""
     frames, psbt = qr_vectors.scan(name)
     digest = hashlib.sha256(bytes.fromhex(psbt)).hexdigest()[:8]
-    return ("SCAN", frames, "psbt %d %s" % (len(psbt) // 2, digest))
+    return ("RECORDED", frames, "psbt %d %s" % (len(psbt) // 2, digest))
 
 
 # (actions, screen expected after them[, note expected]). An action is a key
 # name, a QR frame (bytes or str), or recorded(...).
 FLOWS = {
     "home-menus": [
-        ([], "HOME"),
-        (["DOWN", "OK"], "LOAD_SEED"),
-        (["DOWN", "DOWN", "DOWN", "OK"], "TOOLS"),
-        (["BACK"], "LOAD_SEED"),
-        (["BACK"], "HOME"),
-        (["DOWN", "DOWN", "OK"], "SETTINGS"),
-        (["DOWN", "DOWN", "DOWN", "OK"], "VERSION"),
-        (["OK"], "SETTINGS"),
-        (["HOLD"], "HOME"),
+        ([], "MainMenuView"),
+        (["DOWN", "OK"], "LoadSeedView"),
+        (["DOWN", "DOWN", "DOWN", "OK"], "ToolsMenuView"),
+        (["BACK"], "LoadSeedView"),
+        (["BACK"], "MainMenuView"),
+        (["DOWN", "DOWN", "OK"], "SettingsMenuView"),
+        (["DOWN", "DOWN", "DOWN", "OK"], "VersionView"),
+        (["OK"], "SettingsMenuView"),
+        (["HOLD"], "MainMenuView"),
     ],
     "io-test": [
-        ([], "HOME"),
-        (["DOWN", "DOWN", "DOWN", "OK"], "SETTINGS"),
-        (["DOWN", "DOWN", "OK"], "IO_TEST"),
-        (["UP", "DOWN", "OK", "BACK"], "IO_TEST"),   # counted, not obeyed
-        (["HOLD"], "HOME"),
+        ([], "MainMenuView"),
+        (["DOWN", "DOWN", "DOWN", "OK"], "SettingsMenuView"),
+        (["DOWN", "DOWN", "OK"], "IOTestView"),
+        (["UP", "DOWN", "OK", "BACK"], "IOTestView"),   # counted, not obeyed
+        (["HOLD"], "MainMenuView"),
     ],
     "scan-compactseedqr": [
-        ([], "HOME"),
-        (["OK"], "SCAN"),
-        ([bytes(16)], "SCAN_RESULT", "seed 12 73c5da0a"),
-        (["BACK"], "HOME"),
+        ([], "MainMenuView"),
+        (["OK"], "ScanView"),
+        ([bytes(16)], "SeedFinalizeView", "fingerprint 73c5da0a"),
+        (["OK"], "SeedOptionsView"),
+        (["BACK"], "MainMenuView"),
     ],
     "scan-seedqr-wrong-type": [
-        (["DOWN", "OK", "OK"], "SCAN_SEED"),
-        (["bitcoin:bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"], "SCAN_RESULT",
+        (["DOWN", "OK", "OK"], "ScanSeedQRView"),
+        (["bitcoin:bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"], "ErrorView",
          "wrong-type bitcoin_address"),
-        (["BACK"], "LOAD_SEED"),
+        (["BACK"], "LoadSeedView"),
     ],
     "scan-animated-ur-psbt": [
-        (["OK"], "SCAN"),
-        ([recorded("ur_psbt_3_medium_lossy")], "SCAN_RESULT"),
-        (["HOLD"], "HOME"),
+        (["OK"], "ScanView"),
+        ([recorded("ur_psbt_3_medium_lossy")], "NotYetImplementedView"),
+        (["HOLD"], "MainMenuView"),
     ],
     "scan-bbqr-zlib": [
-        (["OK"], "SCAN"),
-        ([recorded("bbqr_5_Z_shuffled")], "SCAN_RESULT"),
+        (["OK"], "ScanView"),
+        ([recorded("bbqr_5_Z_shuffled")], "NotYetImplementedView"),
+    ],
+    # SeedSigner's test_scan_seedqr_flow, test_export_xpub_standard_flow and
+    # test_discard_seed_flow, on one device: abandon x11 about, BIP-84.
+    "seed-lifecycle": [
+        (["OK"], "ScanView"),
+        ([bytes(16)], "SeedFinalizeView", "fingerprint 73c5da0a"),
+        (["OK"], "SeedOptionsView"),
+        (["BACK"], "MainMenuView"),
+        (["DOWN", "OK"], "SeedsMenuView"),
+        (["OK"], "SeedOptionsView"),
+        (["DOWN", "OK"], "SeedExportXpubSigTypeView"),
+        (["OK"], "SeedExportXpubScriptTypeView"),
+        (["OK"], "SeedExportXpubQRFormatView"),
+        (["OK"], "SeedExportXpubWarningView"),
+        (["OK"], "SeedExportXpubDetailsView",
+         ("prefix", "xpub m/84'/0'/0' zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDGf4wpg7FcomedGtc6jKPrGFh")),
+        (["OK"], "SeedExportXpubQRDisplayView", ("prefix", "xpub-qr m/84'/0'/0'")),
+        (["OK"], "MainMenuView"),
+        (["DOWN", "OK"], "SeedsMenuView"),
+        (["OK"], "SeedOptionsView"),
+        (["DOWN", "DOWN", "DOWN", "DOWN", "OK"], "SeedDiscardView"),
+        (["DOWN", "OK"], "MainMenuView", "discarded"),
+        (["DOWN", "OK"], "LoadSeedView"),
     ],
     "scan-invalid": [
-        (["OK"], "SCAN"),
-        (["hello world"], "SCAN_RESULT", "invalid"),
+        (["OK"], "ScanView"),
+        (["hello world"], "ScanInvalidQRTypeView", "invalid"),
     ],
 }
 
@@ -81,11 +105,11 @@ KEYS = {"UP", "DOWN", "OK", "BACK", "HOLD"}
 
 def act(dev, a):
     """Do one action; return the note it must produce, if any."""
-    if isinstance(a, tuple) and a[0] == "SCAN":
+    if isinstance(a, tuple) and a[0] == "RECORDED":
         _, frames, want = a
         for f in frames:
             dev.qr(f)
-            if dev.screen != "SCAN":
+            if dev.screen != "ScanView":
                 break
         return want
     if isinstance(a, str) and a in KEYS:
@@ -128,7 +152,10 @@ def main():
                     for a in actions:
                         want = act(dev, a) or want
                     assert dev.screen == screen, "expected %s, on %s" % (screen, dev.screen)
-                    if want:
+                    if isinstance(want, tuple) and want[0] == "prefix":
+                        assert any(n.startswith(want[1]) for n in dev.notes[-4:]), \
+                            "expected a note starting %r, got %r" % (want[1], dev.notes[-4:])
+                    elif want:
                         assert dev.notes and dev.notes[-1] == want, \
                             "expected note %r, got %r" % (want, dev.notes[-1:])
                     assert dev.frame is not None, "no frame received"

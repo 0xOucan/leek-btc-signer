@@ -46,7 +46,7 @@ static void walk(int depth)
 {
     check_renders();
     visited++;
-    if (depth > 6 || strstr(top(), "IO_TEST")) return;
+    if (depth > 6 || strstr(top(), "IOTestView")) return;
     const menu_t *m = ui_top()->input == menu_input ? ui_top()->ctx : NULL;
     if (!m) return;
     press(IN_UP, m->n);     /* a covered menu keeps its selection */
@@ -57,7 +57,7 @@ static void walk(int depth)
         if (ui_depth() == d + 1) {
             walk(depth + 1);
             /* The I/O test counts BACK rather than obeying it. */
-            if (strcmp(top(), "IO_TEST") == 0) ui_pop(); else ui_input(IN_BACK);
+            if (strcmp(top(), "IOTestView") == 0) ui_pop(); else ui_input(IN_BACK);
         }
         CHECK(ui_depth() == d && strcmp(top(), here) == 0, "BACK returned to %s", here);
         ui_input(IN_DOWN);
@@ -67,20 +67,20 @@ static void walk(int depth)
 int main(void)
 {
     ui_init(&SCREEN_HOME);
-    CHECK(strcmp(top(), "HOME") == 0 && ui_depth() == 1, "starts at home");
+    CHECK(strcmp(top(), "MainMenuView") == 0 && ui_depth() == 1, "starts at home");
 
     ui_input(IN_BACK);
     CHECK(ui_depth() == 1, "BACK at home stays home");
 
     press(IN_DOWN, 1);
     ui_input(IN_OK);
-    CHECK(strcmp(top(), "LOAD_SEED") == 0, "Seeds opens Load A Seed, got %s", top());
+    CHECK(strcmp(top(), "LoadSeedView") == 0, "Seeds opens Load A Seed, got %s", top());
     press(IN_DOWN, 3);
     ui_input(IN_OK);
-    CHECK(strcmp(top(), "TOOLS") == 0, "Create a seed opens Tools, got %s", top());
+    CHECK(strcmp(top(), "ToolsMenuView") == 0, "Create a seed opens Tools, got %s", top());
     CHECK(ui_depth() == 3, "depth 3");
     ui_input(IN_HOLD);
-    CHECK(ui_depth() == 1 && strcmp(top(), "HOME") == 0, "HOLD goes home");
+    CHECK(ui_depth() == 1 && strcmp(top(), "MainMenuView") == 0, "HOLD goes home");
 
     /* Selection is kept on the covered menu and reset on a fresh visit. */
     press(IN_DOWN, 1);
@@ -144,9 +144,9 @@ int main(void)
     ui_input(IN_OK);
     press(IN_DOWN, 2);
     ui_input(IN_OK);
-    CHECK(strcmp(top(), "IO_TEST") == 0, "I/O test, got %s", top());
+    CHECK(strcmp(top(), "IOTestView") == 0, "I/O test, got %s", top());
     ui_input(IN_BACK);
-    CHECK(strcmp(top(), "IO_TEST") == 0, "BACK is counted, not obeyed");
+    CHECK(strcmp(top(), "IOTestView") == 0, "BACK is counted, not obeyed");
     check_renders();
     ui_input(IN_HOLD);
     CHECK(ui_depth() == 1, "HOLD leaves the I/O test");

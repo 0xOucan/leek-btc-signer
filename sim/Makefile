@@ -36,7 +36,7 @@ PER_PROFILE := test_gfx test_ui test_qr_view test_screens
 ONCE        := test_input test_encoder test_wally test_btc test_psbt \
                test_cbor test_ur test_ur_fountain test_ur_decoder test_ur_encoder \
                test_qrcode test_qr_decode test_qr_encode test_scan test_widgets \
-               test_text_entry
+               test_text_entry test_mnemonic_entry test_seed_flows
 
 B := build
 

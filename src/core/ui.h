@@ -50,6 +50,11 @@ int ui_depth(void);
 bool ui_tick(void);
 /* True if the top screen has a tick, so the loop must not block forever. */
 bool ui_wants_tick(void);
+/* Run `fn` once the current input or tick has been handled: for a screen's
+   leave hook that must move the stack (SeedSigner's "then go to the main
+   menu"), which it cannot do while it is itself being popped. */
+void ui_after(void (*fn)(void));
+
 /* Replace the top screen with `s` (the root is never replaced). */
 void ui_replace(const screen_t *s);
 
@@ -76,7 +81,8 @@ int ui_draw_wrapped(int y, const char *text, gfx_color_t c);
 
 typedef struct {
     const char *label;
-    const screen_t *next;       /* pushed on OK; NULL does nothing */
+    const screen_t *next;       /* pushed on OK */
+    void (*action)(void);       /* or this is called instead */
 } menu_item_t;
 
 #define MENU_MAX_ITEMS 16

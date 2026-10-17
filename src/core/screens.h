@@ -7,6 +7,7 @@
 #include "ui.h"
 
 extern const screen_t SCREEN_HOME;
+extern const screen_t SCREEN_LOAD_SEED;   /* LoadSeedView */
 /* SeedSigner's ScanView, ScanPSBTView and ScanSeedQRView. */
 extern const screen_t SCREEN_SCAN, SCREEN_SCAN_PSBT, SCREEN_SCAN_SEED;
 
