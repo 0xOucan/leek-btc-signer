@@ -5,4 +5,7 @@
 # ECMULT_WINDOW_SIZE 8: verification tables of ~32 KB instead of ~1 MB at
 #   the default 15; the device verifies rarely and signs often.
 # ECMULT_GEN_KB 22: secp256k1's mid-size signing table, about 22 KB.
-WALLY_DEFS := -DWALLY_ABI_NO_ELEMENTS=1 -DECMULT_WINDOW_SIZE=8 -DECMULT_GEN_KB=22
+# BUILD_MINIMAL: English BIP-39 wordlist only. The others are ~56 KB of
+#   internal RAM in any image that calls bip39_get_wordlist (the self-test);
+#   the firmware uses only English.
+WALLY_DEFS := -DWALLY_ABI_NO_ELEMENTS=1 -DECMULT_WINDOW_SIZE=8 -DECMULT_GEN_KB=22 -DBUILD_MINIMAL=1

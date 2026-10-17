@@ -18,9 +18,14 @@ idf_component_register(
 )
 
 # WALLY_ABI_NO_ELEMENTS changes the public headers, so callers see it too.
+# BUILD_MINIMAL drops the non-English BIP-39 wordlists. Each is an array of
+# 2048 pointers in internal RAM; the release image never links them, but
+# any image that calls bip39_get_wordlist (the self-test does) keeps all
+# seven, about 56 KB. The firmware's own English list is in flash
+# (core/bip39-words.c).
 target_compile_definitions(${COMPONENT_LIB}
     PUBLIC WALLY_ABI_NO_ELEMENTS=1
-    PRIVATE ECMULT_WINDOW_SIZE=8 ECMULT_GEN_KB=22)
+    PRIVATE ECMULT_WINDOW_SIZE=8 ECMULT_GEN_KB=22 BUILD_MINIMAL=1)
 
 # Upstream code, upstream's warnings: not ours to fix, and -Werror on them
 # would make a toolchain bump break the build for no security reason.

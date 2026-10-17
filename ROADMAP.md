@@ -366,3 +366,12 @@ is drawn plain and must scan as the SeedQR (the suite reads it back with
 quirc on all five profiles); and with compact SeedQR disabled SeedSigner
 labels a 24-word code 25x25, where this port shows 29x29. 71 of 109 views.
 
+
+**Self-test headroom (2026-10-17).** libwally is built with `BUILD_MINIMAL`,
+which drops its non-English BIP-39 wordlists. Each is 2048 pointers in
+internal RAM; the release image never linked them, but the self-test image
+does (its suites call `bip39_get_wordlist`), and they took 49 KB of the
+heap the suites run in: free heap before the QR suites rose from 208 KB
+(largest block 139 KB) to 257 KB (188 KB). Note for the build: PlatformIO
+does not rebuild a component when only its compile definitions change, so
+such a change needs `pio run -t clean` on every image before `check.sh`.
