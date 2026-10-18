@@ -142,18 +142,45 @@ static void test_scan_psbt_first_then_correct_seedqr_flow(void)
 
 static void test_scan_psbt_first_then_load_electrum_seed(void)
 {
-    /* Electrum seeds are not ported yet: the option is offered, as in
-       SeedSigner, and names the View it would open. */
-    printf("== test_scan_psbt_first_then_load_electrum_seed (Electrum entry not ported)\n");
+    printf("== test_scan_psbt_first_then_load_electrum_seed\n");
     const vec_psbt_t *v = flow_vec("test_scan_psbt_first_then_load_electrum_seed", "");
     if (!v) return;
     fresh();
+    notes_reset();
     SETTINGS.electrum_seeds = true;
     choose("Scan");
+    STEP("ScanView");
     scan_text(v->psbt);
     STEP("PSBTSelectSeedView");
     choose("Enter Electrum seed");
-    STEP("NotYetImplementedView");
+    STEP("SeedElectrumMnemonicStartView");
+    choose("I understand");
+    STEP("SeedMnemonicEntryView");
+    type_mnemonic(v->mnemonic);
+    STEP("SeedFinalizeView");
+    choose("Done");
+    /* SeedOptionsView redirects back into the PSBT flow. */
+    STEP("PSBTOverviewView");
+    CHECK(storage_seed(0) && storage_seed(0)->electrum, "not loaded as an Electrum seed");
+    CHECK(overview_noted(v), "overview: %s", last_note);
+    choose("Review details");
+    STEP("PSBTMathView");
+    /* SeedSigner's test ends here; on to its signature. */
+    choose("Review recipients");
+    STEP("PSBTAddressDetailsView");
+    choose("Next");
+    for (unsigned i = 0; i < v->n_change; i++) {
+        STEP("PSBTChangeDetailsView");
+        char want[160];
+        snprintf(want, sizeof want, "change %u %s %llu m/%s", i, v->change[i].address,
+                 (unsigned long long)v->change[i].amount, v->change[i].path);
+        CHECK(noted(want), "no \"%s\"", want);
+        choose("Next");
+    }
+    STEP("PSBTFinalizeView");
+    choose("Approve transaction");
+    STEP("PSBTSignedQRDisplayView");
+    check_signed(v, "Electrum seed");
 }
 
 static void test_scan_multisig_psbt_seed_already_signed_flow(void)

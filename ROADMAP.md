@@ -253,6 +253,7 @@ on the host and in QEMU.
 | T40 | Done | `views-address.c`: SeedSigner's six address verification views. A scanned address is sorted by type (nested segwit asks single or multi; a P2WSH address is multisig, checked against a wallet descriptor since T47), the seed is chosen or loaded mid-flow, and the search runs on the screen's tick, receive and change, with Skip 10 and Cancel. `test_tools_flows` ports `test__verify_address__singlesig__flow` and finds 144 addresses from SeedSigner's own explorer lists at their index and branch; `qemu-flow.py verify-address` verifies BIP-84's first address on the Xtensa image |
 | T41 | Done, in RAM | `settings.c` ports SeedSigner's SettingsDefinition (all 24 entries, compared field by field with SeedSigner's own `to_dict()`) and `parse_settingsqr` (135 parses as SeedSigner makes them, its exceptions included); `views-settings.c` the six settings views, the menus built from that table. `test_settings_flows` ports `test_flows_settings.py` and chooses every option of every setting through its screen; `qemu-flow.py settings-network` and `settingsqr` on the Xtensa image. Persistence waits for the vault (Phase 5): until then the device is SeedSigner OS with no microSD card |
 | T49 | Done | `btc.c` ports SeedSigner's `parse_derivation_path` and `sign_message` (19 parses, their exceptions included; 192 signatures byte for byte, `test_message`); `views-message.c` the four message-signing views and SeedSigner's OptionDisabledView and NetworkMismatchErrorView. `test_message_flows` ports `TestMessageSigningFlows` and signs all 192 requests through the screens; `qemu-flow.py sign-message` on the Xtensa image |
+| T50 | Done | Electrum seeds, since 2026-10-17 (below): `btc.c` ports SeedSigner's ElectrumSeed and `views-seed.c` SeedElectrumMnemonicStartView, offered wherever SeedSigner offers it |
 | Found by QEMU | Fixed | The Scan screen sized its PSBT buffer to its whole arena, which a board short of RAM could not give; it is now bounded by the scan (`qr_decoder_psbt_max`), checked against every recorded PSBT |
 
 ### 2026-10-17: Phase 4 begins, measured in SeedSigner views
@@ -491,3 +492,21 @@ and a crypto-output UR's descriptor is not decoded (SeedSigner reads it with
 urtypes; the scan says so). 103 of 109 views; the six left are Electrum
 seeds (one view) and five that need the board (camera entropy, the camera
 and microSD errors).
+
+### 2026-10-17: Electrum seeds
+
+| Task | State | Evidence |
+|---|---|---|
+| T50 | Done | `btc.c` ports SeedSigner's ElectrumSeed: 12 words, no BIP-39 checksum, HMAC-SHA512 "Seed version" starting "100" (the segwit seeds, the only kind it takes), PBKDF2-SHA512 with "electrum" and the custom extension, normalised (lowercased, spaces collapsed); `derivation_override()` (m/0h, m/1h) and `detect_version()` (zpub, Zpub). `views-seed.c`: SeedElectrumMnemonicStartView, from LoadSeedView, the PSBT seed choice, the explorer, address verification and message signing; the extension labelled "Custom Extension"; no BIP-85 and no SeedQR backup for an Electrum seed; native segwit only. `gen_electrum_vectors.py` runs SeedSigner's own code: 143 ElectrumSeed constructions (the mnemonics its tests use, 16 drawn at random that pass, 16 that fail, ten extensions), 96 xpub exports (static, Specter and the UR crypto-account), 1512 addresses below m/0h and 36 message signatures, all matched by `test_electrum` (also on Xtensa). `test_electrum_flows` ports `test_electrum_mnemonic_entry_flow`, `test_export_xpub_electrum_seed_flow` and `test__address_explorer__load_electrum_seed__sideflow`; `test_psbt_flows` ports `test_scan_psbt_first_then_load_electrum_seed` and signs to SeedSigner's PSBT. `qemu-flow.py electrum-entry` on the Xtensa image |
+
+An Electrum seed is entered after SeedSigner's warning ("Some features are
+disabled for Electrum seeds."), word by word on the same wordlist, and
+refused with SeedSigner's Invalid Mnemonic screen when it is not an
+Electrum segwit seed. Once loaded it works everywhere a seed does, with
+SeedSigner's overrides: its xpubs are exported at m/0h (single sig) or m/1h
+(multisig) as zpub or Zpub, whatever script types are enabled; the explorer
+and address verification derive below m/0h; PSBTs and messages are signed
+with its own seed bytes. A seed already held is now recognised by its seed
+bytes, as SeedSigner's `Seed.__eq__` does, so the same words as BIP-39 and
+as Electrum are two seeds. 104 of 109 views; the five left need the board
+(camera entropy, and the camera and microSD errors).

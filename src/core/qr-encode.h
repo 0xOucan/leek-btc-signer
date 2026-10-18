@@ -52,9 +52,9 @@ bool qr_encode_seedqr(qr_encoder_t *e, const seed_t *s, uint8_t *buf, size_t cap
 bool qr_encode_compact_seedqr(qr_encoder_t *e, const seed_t *s, uint8_t *buf, size_t cap);
 
 /* StaticXpubQrEncoder, SpecterLegacyXPubQrEncoder, UrXpubQrEncoder. */
-bool qr_encode_xpub(qr_encoder_t *e, const seed_t *s, const char *path, btc_net_t net,
+bool qr_encode_xpub(qr_encoder_t *e, const seed_t *s, const char *path, btc_net_t net, btc_sig_t sig,
                     uint8_t *buf, size_t cap);
-bool qr_encode_xpub_specter(qr_encoder_t *e, const seed_t *s, const char *path, btc_net_t net,
+bool qr_encode_xpub_specter(qr_encoder_t *e, const seed_t *s, const char *path, btc_net_t net, btc_sig_t sig,
                             qr_density_t density, uint8_t *buf, size_t cap);
 bool qr_encode_xpub_ur(qr_encoder_t *e, const seed_t *s, const char *path, btc_net_t net,
                        qr_density_t density, uint8_t *buf, size_t cap);

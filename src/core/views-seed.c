@@ -1,8 +1,10 @@
 /*
  * SeedSigner's seed views (views/seed_views.py), ported view by view: the
- * seeds menu, loading a seed by scan or by typing it, finalising it with an
- * optional BIP-39 passphrase, its options, discarding it, backing it up as
- * words, and exporting its xpub. Each function or screen is named after the
+ * seeds menu, loading a seed by scan or by typing it (BIP-39 or Electrum),
+ * finalising it with an optional BIP-39 passphrase (an Electrum seed's
+ * custom extension), its options, discarding it, backing it up as words,
+ * and exporting its xpub. An Electrum seed gets SeedSigner's overrides:
+ * native segwit at m/0h or m/1h, and no BIP-85 or SeedQR. Each function or screen is named after the
  * View it ports, and the screen carries that name.
  *
  * Where a View leads to one not ported yet, it opens that View's placeholder,
@@ -38,6 +40,12 @@ static const char *fingerprint(const seed_t *s)
 {
     seed_fingerprint_hex(s, fp_buf);
     return fp_buf;
+}
+
+/* Seed.passphrase_label: Electrum calls its passphrase a custom extension. */
+static const char *passphrase_label(const seed_t *s)
+{
+    return s && s->electrum ? "Custom Extension" : "BIP-39 Passphrase";
 }
 
 /* SeedSigner's show_back_button=False. */
@@ -98,7 +106,7 @@ static void seed_options(int seed, bool fresh)
     if (SETTINGS.message_signing) {
         v.buttons[n] = "Sign message"; options_map[n++] = OPT_SIGN_MESSAGE;
     }
-    if (SETTINGS.bip85_child_seeds) {
+    if (SETTINGS.bip85_child_seeds && !storage_seed(seed)->electrum) {     /* bip85_supported */
         v.buttons[n] = "BIP-85 child seed"; options_map[n++] = OPT_BIP85;
     }
     v.buttons[n] = "Discard seed";     options_map[n++] = OPT_DISCARD;
@@ -193,7 +201,7 @@ void SeedFinalizeView(void)
                       .select = finalize_select };
     v.buttons[v.n_buttons++] = "Done";
     if (SETTINGS.passphrase != OPT_DISABLED) {
-        v.buttons[v.n_buttons++] = "BIP-39 Passphrase";
+        v.buttons[v.n_buttons++] = passphrase_label(s);
     }
     view_push(&v);
     ui_note("fingerprint %s", fp_buf);
@@ -216,7 +224,7 @@ static void passphrase_enter(const screen_t *s)
 static void passphrase_render(const screen_t *s)
 {
     (void)s;
-    ui_draw_title("BIP-39 Passphrase");
+    ui_draw_title(passphrase_label(storage_pending()));
     int y = THEME.top_h + THEME.pad;
     /* The tail of the passphrase that fits, then the selector. */
     const int fit = gfx_text_fit(passphrase_entry.text, THEME.body, GFX_W - 2 * THEME.pad - 6);
@@ -241,7 +249,8 @@ static void passphrase_finish(bool back)
     if (p) {
         seed_set_passphrase(p, passphrase_entry.text);
     }
-    const bool empty = passphrase_entry.length == 0;
+    /* As set: an Electrum extension of spaces normalises to nothing. */
+    const bool empty = p ? p->passphrase[0] == '\0' : passphrase_entry.length == 0;
     text_entry_clear(&passphrase_entry);
     ui_pop();
     if (back || empty) {
@@ -509,6 +518,27 @@ void SeedMnemonicEntryFinalWordView(void)
     ui_push(&MNEMONIC_ENTRY_FINAL);
 }
 
+/* SeedElectrumMnemonicStartView: a warning, then 12 words typed as an
+   Electrum mnemonic. The warning has no BACK and stays under the entry, so
+   BACK from the first word returns to it, as in SeedSigner. */
+static void electrum_start_select(int i)
+{
+    (void)i;
+    storage_init_electrum_mnemonic();
+    entry.calc = false;
+    ui_push(&MNEMONIC_ENTRY);
+}
+
+void SeedElectrumMnemonicStartView(void)
+{
+    const view_spec_t v = { .name = "SeedElectrumMnemonicStartView", .title = "Electrum Warning",
+                            .status = true, .kind = NOTICE_WARNING,
+                            .text = "Some features are disabled for Electrum seeds.",
+                            .buttons = { "I understand" }, .n_buttons = 1,
+                            .select = electrum_start_select, .back = no_back };
+    view_push(&v);
+}
+
 static void invalid_select(int i)
 {
     if (i == 0) {
@@ -581,8 +611,10 @@ static void backup_select(int i)
 
 void SeedBackupView(int seed)
 {
+    /* An Electrum seed has no SeedQR (seedqr_supported). */
     const view_spec_t v = { .name = "SeedBackupView", .title = "Backup Seed",
-                            .buttons = { "View seed words", "Export as SeedQR" }, .n_buttons = 2,
+                            .buttons = { "View seed words", "Export as SeedQR" },
+                            .n_buttons = storage_seed(seed)->electrum ? 1 : 2,
                             .select = backup_select, .arg = seed };
     view_push(&v);
 }
@@ -777,9 +809,9 @@ static void SeedExportXpubQRDisplayView(void)
     if (!ok) {
         /* fall through to the message below */
     } else if (xp.format == XPUB_QR_STATIC) {
-        ok = qr_encode_xpub(xp.enc, s, xp.path, SETTINGS.network, xp.buf, XPUB_QR_BUF);
+        ok = qr_encode_xpub(xp.enc, s, xp.path, SETTINGS.network, xp.sig, xp.buf, XPUB_QR_BUF);
     } else if (xp.format == XPUB_QR_SPECTER) {
-        ok = qr_encode_xpub_specter(xp.enc, s, xp.path, SETTINGS.network, SETTINGS.qr_density,
+        ok = qr_encode_xpub_specter(xp.enc, s, xp.path, SETTINGS.network, xp.sig, SETTINGS.qr_density,
                                     xp.buf, XPUB_QR_BUF);
     } else {
         ok = qr_encode_xpub_ur(xp.enc, s, xp.path, SETTINGS.network, SETTINGS.qr_density,
@@ -805,8 +837,11 @@ static void details_select(int i)
 
 static void SeedExportXpubDetailsView(void)
 {
-    if (xp.script != SCRIPT_CUSTOM &&
-        !btc_standard_path(SETTINGS.network, xp.sig, to_btc_script(xp.script), xp.path, sizeof xp.path)) {
+    const char *override = seed_derivation_override(storage_seed(xp.seed), xp.sig);
+    if (xp.script != SCRIPT_CUSTOM && override) {
+        snprintf(xp.path, sizeof xp.path, "%s", override);
+    } else if (xp.script != SCRIPT_CUSTOM &&
+               !btc_standard_path(SETTINGS.network, xp.sig, to_btc_script(xp.script), xp.path, sizeof xp.path)) {
         not_yet("SeedExportXpubDetailsView for this script type");
         return;
     }
@@ -825,7 +860,7 @@ static void SeedExportXpubDetailsView(void)
     ui_working("Generating xpub...");
     char xpub[120] = "";
     btc_xpub(storage_seed(xp.seed)->bytes, 64, xp.path, SETTINGS.network,
-             btc_slip132_version(xp.path, SETTINGS.network), xpub, sizeof xpub);
+             seed_xpub_version(storage_seed(xp.seed), xp.path, SETTINGS.network, xp.sig), xpub, sizeof xpub);
     char text[200];
     snprintf(text, sizeof text, "%s\n%s\n%.10s...%s", fingerprint(storage_seed(xp.seed)), xp.path,
              xpub, xpub + (strlen(xpub) > 8 ? strlen(xpub) - 8 : 0));
@@ -915,8 +950,10 @@ static void SeedExportXpubScriptTypeView(void)
 {
     view_spec_t v = { .name = "SeedExportXpubScriptTypeView", .title = "Export Xpub",
                       .select = script_select };
+    /* An Electrum seed allows native segwit only (script_override). */
+    const bool electrum = storage_seed(xp.seed)->electrum;
     for (int t = 0; t < SCRIPT_COUNT; t++) {
-        if (SETTINGS.script_types[t]) {
+        if (electrum ? t == SCRIPT_NAT : SETTINGS.script_types[t]) {
             script_map[v.n_buttons] = (script_opt_t)t;
             v.buttons[v.n_buttons++] = script_type_name((script_opt_t)t);
         }

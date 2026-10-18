@@ -318,7 +318,7 @@ static void select_seed_select(int i)
     case SRC_SCAN: ui_push(&SCREEN_SCAN); break;
     case SRC_12:   SeedMnemonicEntryView(12); break;
     case SRC_24:   SeedMnemonicEntryView(24); break;
-    default:       not_yet_text("SeedElectrumMnemonicStartView is not ported yet."); break;
+    default:       SeedElectrumMnemonicStartView(); break;
     }
 }
 

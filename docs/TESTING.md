@@ -39,6 +39,14 @@ LeekWallet's `sim/` harness is carried over, with these additions:
   reaches every `verify_multisig_output()` its parser tests make through the
   PSBT review's "Verify multisig change"; where a wrong descriptor fails an
   earlier change output, the flow ends there, as SeedSigner's would.
+  `test_electrum_flows.c` ports SeedSigner's Electrum seed flow tests (entry,
+  xpub export, the explorer sideflow) and reaches its overrides as a user
+  would: no BIP-85 or SeedQR, the custom extension, address verification and
+  message signing with an Electrum seed loaded mid-flow.
+- **Electrum seeds** (`test_electrum.c`, also in the Xtensa self-test):
+  143 ElectrumSeed constructions (seed, fingerprint, the extension as
+  normalised, and which mnemonics it refuses), 96 xpub exports at m/0h and
+  m/1h, 1512 addresses below m/0h and 36 message signatures.
 - **Multisig descriptors** (`test_descriptor.c`, also in the Xtensa
   self-test): every wallet descriptor scan SeedSigner's DecodeQR made (its
   tests' and generated ones, 46 of them at the corners of its JSON and

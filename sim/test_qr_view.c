@@ -117,7 +117,7 @@ static void test_static(void)
     }
     const qrv_xpub_t *x = &QR_XPUBS[0];
     CHECK(seed_from_mnemonic(&s, x->mnemonic, x->passphrase) == SEED_OK, "seed");
-    qr_encode_xpub(enc, &s, x->path, x->net, buf, BUF_SIZE);
+    qr_encode_xpub(enc, &s, x->path, x->net, BTC_SIG_SINGLE, buf, BUF_SIZE);
     qr_view_start(view, enc, 0);
     CHECK(shows((const uint8_t *)x->xpub_static, strlen(x->xpub_static)), "xpub is not on the screen");
     seed_clear(&s);

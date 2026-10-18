@@ -7,7 +7,7 @@ A view counts as done only when the device does what SeedSigner's view
 does and a test proves it. Every view weighs the same. `scripts/coverage.py`
 writes this page and the README chart.
 
-**103 of 109 views: 94.5%.**
+**104 of 109 views: 95.4%.**
 
 ## System: 10 of 12
 
@@ -37,21 +37,21 @@ writes this page and the README chart.
 | `ScanAddressView` | ✅ | refuses other codes: test_tools_flows.c; qemu-flow verify-address |
 | `ScanInvalidQRTypeView` | ✅ | sim/test_scan.c; qemu-flow scan-invalid |
 
-## Seeds: 47 of 48
+## Seeds: 48 of 48
 
 | View | Done | Evidence |
 |---|---|---|
 | `SeedsMenuView` | ✅ | test_seed_flows.c (redirect with no seeds, list with one); qemu-flow seed-lifecycle |
 | `SeedSelectSeedView` | ✅ | loaded seeds, a seed loaded mid-flow: test_tools_flows.c; qemu-flow verify-address |
-| `LoadSeedView` | ✅ | SeedSigner's menu with Electrum off (its default): test_seed_flows.c; qemu-flow |
-| `SeedMnemonicEntryView` | ✅ | test_mnemonic_entry_flow, 12 and 24 words typed key by key: test_seed_flows.c |
+| `LoadSeedView` | ✅ | SeedSigner's menu, Electrum entry when enabled: test_seed_flows.c, test_electrum_flows.c; qemu-flow |
+| `SeedMnemonicEntryView` | ✅ | test_mnemonic_entry_flow, 12 and 24 words typed key by key: test_seed_flows.c; Electrum's 12: test_electrum_flows.c |
 | `SeedMnemonicInvalidView` | ✅ | test_invalid_mnemonic: test_seed_flows.c |
 | `SeedFinalizeView` | ✅ | test_scan_seedqr_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
 | `SeedAddPassphraseView` | ✅ | test_passphrase_entry_flow, typed on the wheel: test_seed_flows.c |
 | `SeedAddPassphraseExitDialogView` | ✅ | test_passphrase_entry_flow (discard, edit, skip): test_seed_flows.c |
 | `SeedReviewPassphraseView` | ✅ | test_passphrase_entry_flow: test_seed_flows.c |
 | `SeedDiscardView` | ✅ | test_discard_seed_flow: test_seed_flows.c; qemu-flow seed-lifecycle |
-| `SeedElectrumMnemonicStartView` |  |  |
+| `SeedElectrumMnemonicStartView` | ✅ | test_electrum_mnemonic_entry_flow, from every flow that offers it, against SeedSigner's ElectrumSeed: test_electrum_flows.c, test_psbt_flows.c; test_electrum.c |
 | `SeedOptionsView` | ✅ | test_seed_flows.c; qemu-flow seed-lifecycle |
 | `SeedBackupView` | ✅ | test_seed_flows.c |
 | `SeedExportXpubSigTypeView` | ✅ | test_export_xpub_standard_flow, all 21 combinations: test_seed_flows.c |

@@ -18,6 +18,9 @@ void SeedMnemonicEntryView(size_t words);
 void SeedMnemonicEntryCalcView(size_t words);
 /* The calculator's "Word selection entropy": type the last word. */
 void SeedMnemonicEntryFinalWordView(void);
+/* SeedElectrumMnemonicStartView: its warning, then 12 words entered as an
+ * Electrum seed. */
+void SeedElectrumMnemonicStartView(void);
 void SeedMnemonicInvalidView(void);
 void SeedFinalizeView(void);
 void SeedAddPassphraseView(void);

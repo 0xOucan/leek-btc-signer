@@ -49,8 +49,9 @@ typedef struct {
     uint16_t words[SEED_MAX_WORDS];
     uint8_t n_words;                        /* 12 or 24 */
     char passphrase[SEED_PASSPHRASE_MAX + 1];
-    uint8_t bytes[64];                      /* BIP-39 seed */
+    uint8_t bytes[64];                      /* BIP-39 seed, or Electrum's */
     uint8_t fingerprint[4];
+    bool electrum;                          /* SeedSigner's ElectrumSeed */
 } seed_t;
 
 typedef enum {
@@ -59,6 +60,7 @@ typedef enum {
     SEED_ERR_UNKNOWN_WORD,
     SEED_ERR_CHECKSUM,
     SEED_ERR_PASSPHRASE,    /* longer than the limit, or not printable ASCII */
+    SEED_ERR_ELECTRUM,      /* not an Electrum segwit seed (version "100") */
     SEED_ERR_INTERNAL,
 } seed_err_t;
 
@@ -70,9 +72,30 @@ seed_err_t seed_from_mnemonic(seed_t *s, const char *mnemonic,
                               const char *passphrase);
 /* Change the passphrase; recomputes the seed and fingerprint. The device
  * types passphrases on a character wheel of printable ASCII, for which
- * BIP-39's NFKD normalisation changes nothing. */
+ * BIP-39's NFKD normalisation changes nothing. An Electrum seed's is
+ * normalised first (electrum_normalize_passphrase). */
 seed_err_t seed_set_passphrase(seed_t *s, const char *passphrase);
 void seed_clear(seed_t *s);
+
+/* SeedSigner's ElectrumSeed: 12 words, any of them (no BIP-39 checksum),
+ * whose HMAC-SHA512("Seed version") starts "100" (Electrum's segwit seeds,
+ * the only kind SeedSigner takes); the seed is PBKDF2-SHA512 of the words
+ * with "electrum" and the passphrase (Electrum's "custom extension") as
+ * salt, 2048 rounds. The passphrase is stored normalised, as
+ * seed_set_passphrase() does for an Electrum seed. */
+seed_err_t seed_from_indices_electrum(seed_t *s, const uint16_t *idx, size_t n,
+                                      const char *passphrase);
+/* ElectrumSeed.normalize_electrum_passphrase() for printable ASCII:
+ * lowercased, runs of spaces as one, none at either end. */
+void electrum_normalize_passphrase(const char *in, char *out, size_t cap);
+
+/* Seed.derivation_override(): "m/0h" (single sig) or "m/1h" (multisig) for
+ * an Electrum seed, NULL for any other. */
+const char *seed_derivation_override(const seed_t *s, btc_sig_t sig);
+/* Seed.detect_version(): an Electrum seed's xpub is always a zpub (single
+ * sig) or Zpub (multisig), in the network's form; any other seed's is what
+ * btc_slip132_version picks from the path. */
+uint32_t seed_xpub_version(const seed_t *s, const char *path, btc_net_t net, btc_sig_t sig);
 void seed_fingerprint_hex(const seed_t *s, char out[9]);
 /* The words, space separated. Returns the length, or 0 if `cap` is short. */
 size_t seed_mnemonic(const seed_t *s, char *out, size_t cap);
@@ -105,8 +128,8 @@ bool btc_pubkey_at(const seed_t *s, const char *path, btc_net_t net,
                    uint8_t pub[33], uint8_t chain[32], uint8_t parent_fp[4]);
 
 /* SeedSigner's static xpub export: "[fingerprint/path]xpub", with the
- * SLIP-132 version btc_slip132_version picks. */
-bool btc_xpub_export(const seed_t *s, const char *path, btc_net_t net,
+ * SLIP-132 version seed_xpub_version picks. */
+bool btc_xpub_export(const seed_t *s, const char *path, btc_net_t net, btc_sig_t sig,
                      char *out, size_t cap);
 
 /* SeedSigner's get_single_sig_address: the address at <change>/<index>

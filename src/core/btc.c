@@ -132,15 +132,30 @@ size_t seed_mnemonic(const seed_t *s, char *out, size_t cap)
     return pos;
 }
 
-/* Recompute the BIP-39 seed and fingerprint from words and passphrase. */
+/* Electrum's seed: PBKDF2-SHA512 of the words, salted "electrum" and the
+   passphrase. */
+static bool electrum_seed(const char *mnemonic, const char *passphrase, uint8_t out[64])
+{
+    uint8_t salt[8 + SEED_PASSPHRASE_MAX];
+    const size_t plen = strlen(passphrase);
+    memcpy(salt, "electrum", 8);
+    memcpy(salt + 8, passphrase, plen);
+    const bool ok = wally_pbkdf2_hmac_sha512((const unsigned char *)mnemonic, strlen(mnemonic), salt,
+                                             8 + plen, 0, 2048, out, 64) == WALLY_OK;
+    wally_bzero(salt, sizeof salt);
+    return ok;
+}
+
+/* Recompute the seed and fingerprint from words and passphrase. */
 static seed_err_t derive(seed_t *s)
 {
     char mnemonic[24 * 9];
     struct ext_key root;
     seed_err_t err = SEED_ERR_INTERNAL;
     if (seed_mnemonic(s, mnemonic, sizeof mnemonic) &&
-        bip39_mnemonic_to_seed512(mnemonic, s->passphrase, s->bytes,
-                                  sizeof s->bytes) == WALLY_OK &&
+        (s->electrum ? electrum_seed(mnemonic, s->passphrase, s->bytes)
+                     : bip39_mnemonic_to_seed512(mnemonic, s->passphrase, s->bytes,
+                                                 sizeof s->bytes) == WALLY_OK) &&
         bip32_key_from_seed(s->bytes, sizeof s->bytes, BIP32_VER_MAIN_PRIVATE, 0,
                             &root) == WALLY_OK &&
         bip32_key_get_fingerprint(&root, s->fingerprint,
@@ -237,8 +252,91 @@ seed_err_t seed_set_passphrase(seed_t *s, const char *passphrase)
         return SEED_ERR_PASSPHRASE;
     }
     wally_bzero(s->passphrase, sizeof s->passphrase);
-    strcpy(s->passphrase, passphrase);
+    if (s->electrum) {
+        electrum_normalize_passphrase(passphrase, s->passphrase, sizeof s->passphrase);
+    } else {
+        strcpy(s->passphrase, passphrase);
+    }
     return derive(s);
+}
+
+/* ---- Electrum seeds ----------------------------------------------------- */
+
+void electrum_normalize_passphrase(const char *in, char *out, size_t cap)
+{
+    size_t n = 0;
+    bool gap = false;
+    for (const char *p = in; *p && n + 1 < cap; p++) {
+        if (*p == ' ') {
+            gap = n > 0;
+            continue;
+        }
+        if (gap && n + 2 < cap) {
+            out[n++] = ' ';
+        }
+        gap = false;
+        out[n++] = (*p >= 'A' && *p <= 'Z') ? (char)(*p - 'A' + 'a') : *p;
+    }
+    if (cap) {
+        out[n] = '\0';
+    }
+}
+
+/* SeedSigner's version check: HMAC-SHA512 keyed "Seed version" of the
+   words, whose hex starts "100" (ELECTRUM_SEED_SEGWIT). */
+static bool electrum_segwit(const char *mnemonic)
+{
+    uint8_t mac[HMAC_SHA512_LEN];
+    const bool ok = wally_hmac_sha512((const unsigned char *)"Seed version", 12,
+                                      (const unsigned char *)mnemonic, strlen(mnemonic), mac,
+                                      sizeof mac) == WALLY_OK &&
+                    mac[0] == 0x10 && (mac[1] >> 4) == 0;
+    wally_bzero(mac, sizeof mac);
+    return ok;
+}
+
+seed_err_t seed_from_indices_electrum(seed_t *s, const uint16_t *idx, size_t n,
+                                      const char *passphrase)
+{
+    seed_clear(s);
+    if (n != 12) {
+        return SEED_ERR_WORD_COUNT;     /* "Unsupported Electrum seed length" */
+    }
+    for (size_t i = 0; i < n; i++) {
+        if (idx[i] >= BIP39_WORDS) {
+            return SEED_ERR_UNKNOWN_WORD;
+        }
+    }
+    if (passphrase == NULL) {
+        passphrase = "";
+    }
+    if (!passphrase_ok(passphrase)) {
+        return SEED_ERR_PASSPHRASE;
+    }
+    memcpy(s->words, idx, n * sizeof idx[0]);
+    s->n_words = (uint8_t)n;
+    s->electrum = true;
+    char mnemonic[12 * 9];
+    const bool segwit = seed_mnemonic(s, mnemonic, sizeof mnemonic) && electrum_segwit(mnemonic);
+    wally_bzero(mnemonic, sizeof mnemonic);
+    if (!segwit) {
+        seed_clear(s);
+        return SEED_ERR_ELECTRUM;       /* "Unsupported Electrum seed format" */
+    }
+    electrum_normalize_passphrase(passphrase, s->passphrase, sizeof s->passphrase);
+    seed_err_t err = derive(s);
+    if (err != SEED_OK) {
+        seed_clear(s);
+    }
+    return err;
+}
+
+const char *seed_derivation_override(const seed_t *s, btc_sig_t sig)
+{
+    if (s == NULL || !s->electrum) {
+        return NULL;
+    }
+    return sig == BTC_SIG_SINGLE ? "m/0h" : "m/1h";
 }
 
 void seed_clear(seed_t *s)
@@ -413,11 +511,23 @@ bool btc_pubkey_at(const seed_t *s, const char *path, btc_net_t net,
     return ok;
 }
 
-bool btc_xpub_export(const seed_t *s, const char *path, btc_net_t net,
+uint32_t seed_xpub_version(const seed_t *s, const char *path, btc_net_t net, btc_sig_t sig)
+{
+    if (s != NULL && s->electrum) {
+        /* embit's NETWORKS[...]["zpub"] or ["Zpub"]: regtest has testnet's. */
+        if (sig == BTC_SIG_SINGLE) {
+            return net == BTC_NET_MAIN ? 0x04B24746 : 0x045F1CF6;
+        }
+        return net == BTC_NET_MAIN ? 0x02AA7ED3 : 0x02575483;
+    }
+    return btc_slip132_version(path, net);
+}
+
+bool btc_xpub_export(const seed_t *s, const char *path, btc_net_t net, btc_sig_t sig,
                      char *out, size_t cap)
 {
     char xpub[120], fp[9];
-    uint32_t version = btc_slip132_version(path, net);
+    uint32_t version = seed_xpub_version(s, path, net, sig);
     if (!version || path[0] != 'm' ||
         !btc_xpub(s->bytes, sizeof s->bytes, path, net, version, xpub, sizeof xpub)) {
         return false;

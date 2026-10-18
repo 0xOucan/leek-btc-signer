@@ -112,16 +112,6 @@ static void no_back(void)
 {
 }
 
-static void not_yet(const char *view)
-{
-    char text[96];
-    snprintf(text, sizeof text, "%s is not ported yet.", view);
-    const view_spec_t v = { .name = "NotYetImplementedView", .title = "Work In Progress",
-                            .text = text, .status = true, .kind = NOTICE_INFO,
-                            .buttons = { "OK" }, .n_buttons = 1 };
-    view_push(&v);
-}
-
 /* BtcAmount's text, on one line. */
 static const char *amount(uint64_t sats, char *buf, size_t cap)
 {
@@ -700,7 +690,7 @@ static void select_seed_select(int i)
     case SEL_SCAN: ui_push(&SCREEN_SCAN_SEED); break;
     case SEL_12:   SeedMnemonicEntryView(12); break;
     case SEL_24:   SeedMnemonicEntryView(24); break;
-    default:       not_yet("SeedElectrumMnemonicStartView"); break;
+    default:       SeedElectrumMnemonicStartView(); break;
     }
 }
 

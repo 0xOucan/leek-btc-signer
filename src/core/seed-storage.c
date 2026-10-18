@@ -12,6 +12,7 @@ static bool has_pending;
 static uint16_t mnemonic[SEED_MAX_WORDS];
 static bool entered[SEED_MAX_WORDS];
 static size_t mnemonic_len;
+static bool mnemonic_electrum;
 
 void storage_set_pending(const seed_t *s)
 {
@@ -30,11 +31,10 @@ void storage_clear_pending(void)
     has_pending = false;
 }
 
+/* Seed.__eq__: the same seed bytes. */
 static bool same(const seed_t *a, const seed_t *b)
 {
-    return a->n_words == b->n_words &&
-           memcmp(a->words, b->words, a->n_words * sizeof a->words[0]) == 0 &&
-           strcmp(a->passphrase, b->passphrase) == 0;
+    return memcmp(a->bytes, b->bytes, sizeof a->bytes) == 0;
 }
 
 int storage_finalize(void)
@@ -84,6 +84,17 @@ void storage_init_mnemonic(size_t n_words)
     mnemonic_len = n_words <= SEED_MAX_WORDS ? n_words : SEED_MAX_WORDS;
 }
 
+void storage_init_electrum_mnemonic(void)
+{
+    storage_init_mnemonic(12);
+    mnemonic_electrum = true;
+}
+
+bool storage_mnemonic_is_electrum(void)
+{
+    return mnemonic_electrum;
+}
+
 size_t storage_mnemonic_len(void)
 {
     return mnemonic_len;
@@ -110,7 +121,8 @@ bool storage_mnemonic_to_pending(void)
         }
     }
     seed_t s;
-    const bool ok = seed_from_indices(&s, mnemonic, mnemonic_len, "") == SEED_OK;
+    const bool ok = (mnemonic_electrum ? seed_from_indices_electrum(&s, mnemonic, mnemonic_len, "")
+                                       : seed_from_indices(&s, mnemonic, mnemonic_len, "")) == SEED_OK;
     if (ok) {
         storage_set_pending(&s);
     }
@@ -123,6 +135,7 @@ void storage_discard_mnemonic(void)
     wally_bzero(mnemonic, sizeof mnemonic);
     wally_bzero(entered, sizeof entered);
     mnemonic_len = 0;
+    mnemonic_electrum = false;
 }
 
 void storage_wipe_all(void)

@@ -23,8 +23,9 @@
 void storage_set_pending(const seed_t *s);
 seed_t *storage_pending(void);              /* NULL if none */
 void storage_clear_pending(void);
-/* finalize_pending_seed(): store it (once: a seed already held is not
- * added twice) and return its index, or -1 if storage is full. */
+/* finalize_pending_seed(): store it (once: a seed already held, by
+ * Seed.__eq__, the same seed bytes, is not added twice) and return its
+ * index, or -1 if storage is full. */
 int storage_finalize(void);
 
 int storage_count(void);
@@ -32,12 +33,16 @@ seed_t *storage_seed(int i);
 /* SeedSigner's discard_seed(): wipe it and close the gap. */
 void storage_discard(int i);
 
-/* The mnemonic being entered. */
+/* The mnemonic being entered. init_pending_mnemonic(): `electrum` makes it
+ * an ElectrumSeed when converted. */
 void storage_init_mnemonic(size_t n_words);
+void storage_init_electrum_mnemonic(void);
+bool storage_mnemonic_is_electrum(void);
 size_t storage_mnemonic_len(void);
 void storage_set_word(size_t i, uint16_t word);
 int storage_word(size_t i);                 /* -1 if not entered yet */
-/* convert_pending_mnemonic_to_pending_seed(): false on a bad checksum
+/* convert_pending_mnemonic_to_pending_seed(): false on a bad checksum, or
+ * for an Electrum mnemonic, a seed that is not Electrum's segwit kind
  * (SeedSigner's InvalidSeedException), the mnemonic kept for editing. */
 bool storage_mnemonic_to_pending(void);
 void storage_discard_mnemonic(void);

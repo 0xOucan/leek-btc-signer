@@ -240,6 +240,19 @@ FLOWS = {
         (["OK"], "SeedSignMessageSignedMessageQRView", ("prefix", "message-signed ")),
         (["OK"], "MainMenuView"),
     ],
+    # Electrum seeds enabled in Advanced, then SeedSigner's
+    # test_electrum_mnemonic_entry_flow to the first word: LoadSeedView's
+    # extra entry, its warning, and BACK from the first word to it.
+    "electrum-entry": [
+        (["DOWN", "DOWN", "DOWN", "OK"], "SettingsMenuView"),
+        (["DOWN", "DOWN", "DOWN", "OK"], "SettingsMenuView"),
+        (["DOWN"] * 10 + ["OK"], "SettingsEntryUpdateSelectionView"),
+        (["UP", "OK"], "SettingsEntryUpdateSelectionView", "setting electrum_seeds=E"),
+        (["HOLD", "UP", "UP", "OK"], "LoadSeedView"),        # HOLD keeps the menu on Settings
+        (["DOWN", "DOWN", "DOWN", "OK"], "SeedElectrumMnemonicStartView"),
+        (["OK"], "SeedMnemonicEntryView"),
+        (["BACK"], "SeedElectrumMnemonicStartView"),
+    ],
     # view.py's power views: the main menu's power button is BACK.
     "power": [
         (["BACK"], "PowerOptionsView"),

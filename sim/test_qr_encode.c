@@ -194,7 +194,7 @@ static void test_xpubs(void)
         const qrv_xpub_t *x = &QR_XPUBS[i];
         CHECK(load(&s, x->mnemonic, x->passphrase), "seed %zu", i);
 
-        CHECK(qr_encode_xpub(&enc, &s, x->path, x->net, buf, BUF_SIZE), "xpub %zu", i);
+        CHECK(qr_encode_xpub(&enc, &s, x->path, x->net, BTC_SIG_SINGLE, buf, BUF_SIZE), "xpub %zu", i);
         size_t n = qr_encoder_next_part(&enc, part, PART_SIZE - 1);
         part[n] = '\0';
         CHECK(strcmp((char *)part, x->xpub_static) == 0, "%s net %d: static %s, SeedSigner %s",
@@ -205,7 +205,7 @@ static void test_xpubs(void)
         }
 
         for (int d = 0; d < 3; d++) {
-            CHECK(qr_encode_xpub_specter(&enc, &s, x->path, x->net, x->specter[d].density, buf, BUF_SIZE),
+            CHECK(qr_encode_xpub_specter(&enc, &s, x->path, x->net, BTC_SIG_SINGLE, x->specter[d].density, buf, BUF_SIZE),
                   "specter %zu", i);
             CHECK(qr_encoder_seq_len(&enc) == x->specter[d].n_parts, "%s: Specter part count", x->path);
             CHECK(parts_match(&x->specter[d], &parts), "%s net %d density %d: Specter parts differ",

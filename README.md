@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  ███████████████████░  103 of 109 views (94%)
+SeedSigner  ███████████████████░  104 of 109 views (95%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
@@ -72,6 +72,7 @@ are screens on top of it.
 | Backup words and the backup test | ✅ | ✅ words page by page, then every word verified in random order with decoys |
 | Seeds from words, dice, coin flips | ✅ | ✅ typing 12 or 24 words; dice (50 or 99 rolls); the final-word calculator from coin flips, a chosen word or zeros; camera entropy needs the board |
 | BIP-39 passphrase | ✅ | ✅ add, review, edit, discard, as SeedSigner's flow |
+| Electrum seeds (off by default) | ✅ | ✅ 12 Electrum words typed from every flow that offers it; the custom extension, xpubs at m/0h and m/1h, the explorer, address verification, PSBT and message signing as SeedSigner does; BIP-85 and SeedQR turned off |
 | xpub export: static, Specter, animated UR | ✅ | ✅ the whole flow, all 21 of SeedSigner's combinations |
 | PSBT scan: UR, BBQr, Specter, base64, base43 | ✅ | 🟡 scan to seed selection works end to end in QEMU, matching SeedSigner frame by frame; camera needs the board |
 | PSBT review and the anti-forgery checks | ✅ | ✅ the whole flow on screen: seed choice, overview, warnings, math, each recipient and change output, OP_RETURN, every refusal; plus three stricter refusals (below) |
@@ -130,6 +131,7 @@ embit version it pins and record what it does:
 | Every PSBT SeedSigner's own test suite parses | 207 | see below |
 | QR scans (SeedSigner's own decode tests and generated ones), frame by frame | 515 scans, 4834 frames | all match |
 | Wallet descriptor scans, descriptors, multisig addresses, change verifications | 123, 17, 360, 21 | all match |
+| Electrum seeds, xpub exports, addresses, message signatures | 143, 96, 1512, 36 | all match |
 | QR type detection | 2756 frames | all match |
 | QR output parts | 6246 | all identical |
 | QR symbols, module by module (python-qrcode) | 33, versions 1-25 | all identical |

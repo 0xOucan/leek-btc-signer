@@ -48,7 +48,7 @@ DONE = {
     "PowerOffView": "test_settings_flows.c; qemu-flow power",
     "NetworkMismatchErrorView": "test_sign_message_network_mismatch_flow, three networks: test_message_flows.c",
     "OptionDisabledView": "test_sign_message_option_disabled: test_message_flows.c",
-    "LoadSeedView": "SeedSigner's menu with Electrum off (its default): test_seed_flows.c; qemu-flow",
+    "LoadSeedView": "SeedSigner's menu, Electrum entry when enabled: test_seed_flows.c, test_electrum_flows.c; qemu-flow",
     "ToolsMenuView": "SeedSigner's five entries: qemu-flow home-menus",
     "IOTestView": "qemu-flow io-test; test_io_test: test_settings_flows.c",
     "VersionView": "qemu-flow home-menus",
@@ -69,7 +69,8 @@ DONE = {
     "ScanWalletDescriptorView": "123 descriptor scans as SeedSigner's DecodeQR (test_descriptor.c); refuses other codes: test_multisig_flows.c; qemu-flow multisig-explorer",
     # Seeds: SeedSigner's tests/test_flows_seed.py, ported in sim/test_seed_flows.c
     "SeedsMenuView": "test_seed_flows.c (redirect with no seeds, list with one); qemu-flow seed-lifecycle",
-    "SeedMnemonicEntryView": "test_mnemonic_entry_flow, 12 and 24 words typed key by key: test_seed_flows.c",
+    "SeedMnemonicEntryView": "test_mnemonic_entry_flow, 12 and 24 words typed key by key: test_seed_flows.c; Electrum's 12: test_electrum_flows.c",
+    "SeedElectrumMnemonicStartView": "test_electrum_mnemonic_entry_flow, from every flow that offers it, against SeedSigner's ElectrumSeed: test_electrum_flows.c, test_psbt_flows.c; test_electrum.c",
     "SeedMnemonicInvalidView": "test_invalid_mnemonic: test_seed_flows.c",
     "SeedFinalizeView": "test_scan_seedqr_flow: test_seed_flows.c; qemu-flow seed-lifecycle",
     "SeedAddPassphraseView": "test_passphrase_entry_flow, typed on the wheel: test_seed_flows.c",

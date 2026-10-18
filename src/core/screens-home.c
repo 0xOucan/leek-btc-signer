@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 
+#include "settings.h"
 #include "theme.h"
 #include "views-address.h"
 #include "views-message.h"
@@ -125,15 +126,33 @@ static const screen_t TOOLS = SCREEN_MENU("ToolsMenuView", tools_menu);
 static void enter_12(void) { SeedMnemonicEntryView(12); }
 static void enter_24(void) { SeedMnemonicEntryView(24); }
 
-/* LoadSeedView, with Electrum seeds off (SeedSigner's default). */
+/* LoadSeedView: "Enter Electrum seed" only with Electrum seeds enabled. */
 static const menu_item_t load_items[] = {
     { "Scan a SeedQR", &SCREEN_SCAN_SEED, NULL },
     { "Enter 12-word seed", NULL, enter_12 },
     { "Enter 24-word seed", NULL, enter_24 },
     { "Create a seed", &TOOLS, NULL },
 };
+static const menu_item_t load_items_electrum[] = {
+    { "Scan a SeedQR", &SCREEN_SCAN_SEED, NULL },
+    { "Enter 12-word seed", NULL, enter_12 },
+    { "Enter 24-word seed", NULL, enter_24 },
+    { "Enter Electrum seed", NULL, SeedElectrumMnemonicStartView },
+    { "Create a seed", &TOOLS, NULL },
+};
 static menu_t load_menu = { "Load A Seed", load_items, 4, 0, 0 };
-const screen_t SCREEN_LOAD_SEED = SCREEN_MENU("LoadSeedView", load_menu);
+
+static void load_enter(const screen_t *s)
+{
+    load_menu.items = SETTINGS.electrum_seeds ? load_items_electrum : load_items;
+    load_menu.n = SETTINGS.electrum_seeds ? 5 : 4;
+    menu_enter(s);
+}
+
+const screen_t SCREEN_LOAD_SEED = {
+    .name = "LoadSeedView", .enter = load_enter, .render = menu_render, .input = menu_input,
+    .ctx = (void *)&load_menu,
+};
 
 
 static const menu_item_t home_items[] = {

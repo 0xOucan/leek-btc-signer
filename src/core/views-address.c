@@ -195,10 +195,16 @@ static const screen_t VERIFY = {
 /* `seed` -1: multisig, checked against the wallet descriptor. */
 static void SeedAddressVerificationView(int seed, bool replace)
 {
+    const char *path = av.path;
     if (seed >= 0) {
         const seed_t *s = storage_seed(seed);
-        /* The xpub at the standard path, on the address's network. */
-        if (s == NULL || !btc_xpub(s->bytes, sizeof s->bytes, av.path, av.net, 0, av.xpub, sizeof av.xpub)) {
+        /* The xpub at the standard path, on the address's network; an
+           Electrum seed's own path (derivation_override) instead. */
+        const char *override = seed_derivation_override(s, BTC_SIG_SINGLE);
+        if (override) {
+            path = override;
+        }
+        if (s == NULL || !btc_xpub(s->bytes, sizeof s->bytes, path, av.net, 0, av.xpub, sizeof av.xpub)) {
             return;
         }
     } else if (multisig_descriptor() == NULL) {
@@ -207,7 +213,7 @@ static void SeedAddressVerificationView(int seed, bool replace)
     av.seed = seed;
     av.index = 0;
     av.sel = 0;
-    ui_note("verify %s %s", av.path, av.address);
+    ui_note("verify %s %s", path, av.address);
     if (replace) {
         ui_replace(&VERIFY);
     } else {
@@ -231,7 +237,7 @@ static void select_seed_select(int i)
     case SRC_SCAN: ui_push(&SCREEN_SCAN); break;
     case SRC_12:   SeedMnemonicEntryView(12); break;
     case SRC_24:   SeedMnemonicEntryView(24); break;
-    default:       not_yet("SeedElectrumMnemonicStartView"); break;
+    default:       SeedElectrumMnemonicStartView(); break;
     }
 }
 

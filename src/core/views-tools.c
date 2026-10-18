@@ -36,16 +36,6 @@
 #include "views.h"
 #include "wally_core.h"
 
-static void not_yet(const char *view)
-{
-    char text[96];
-    snprintf(text, sizeof text, "%s is not ported yet.", view);
-    const view_spec_t v = { .name = "NotYetImplementedView", .title = "Work In Progress",
-                            .text = text, .status = true, .kind = NOTICE_INFO,
-                            .buttons = { "OK" }, .n_buttons = 1 };
-    view_push(&v);
-}
-
 #define DICE_ROLLS_12 50    /* DICE__NUM_ROLLS__12WORD */
 #define DICE_ROLLS_24 99    /* DICE__NUM_ROLLS__24WORD */
 
@@ -428,9 +418,13 @@ static void ToolsAddressExplorerAddressTypeView(int seed, script_opt_t script, b
     if (s == NULL) {
         return;
     }
-    if (script != SCRIPT_CUSTOM &&
-        (ex_btc_script(script) == BTC_SCRIPT_INVALID ||
-         !btc_standard_path(SETTINGS.network, BTC_SIG_SINGLE, ex_btc_script(script), ex.path, sizeof ex.path))) {
+    const char *override = seed_derivation_override(s, BTC_SIG_SINGLE);
+    if (script != SCRIPT_CUSTOM && override) {
+        snprintf(ex.path, sizeof ex.path, "%s", override);
+    } else if (script != SCRIPT_CUSTOM &&
+               (ex_btc_script(script) == BTC_SCRIPT_INVALID ||
+                !btc_standard_path(SETTINGS.network, BTC_SIG_SINGLE, ex_btc_script(script), ex.path,
+                                   sizeof ex.path))) {
         return;
     }
     if (!btc_xpub(s->bytes, sizeof s->bytes, ex.path, SETTINGS.network, 0, ex.xpub, sizeof ex.xpub)) {
@@ -512,8 +506,11 @@ void tools_explorer_script_type(int seed, bool replace)
 {
     view_spec_t v = { .name = "SeedExportXpubScriptTypeView", .title = "Address Explorer",
                       .select = ex_script_select, .back = ex_script_back, .arg = seed };
+    /* An Electrum seed allows native segwit only (script_override). */
+    const seed_t *s = storage_seed(seed);
+    const bool electrum = s && s->electrum;
     for (int t = 0; t < SCRIPT_COUNT; t++) {
-        if (SETTINGS.script_types[t]) {
+        if (electrum ? t == SCRIPT_NAT : SETTINGS.script_types[t]) {
             ex_script_map[v.n_buttons] = (script_opt_t)t;
             v.buttons[v.n_buttons++] = script_type_name((script_opt_t)t);
         }
@@ -561,7 +558,7 @@ static void select_source_select(int i)
     case SRC_DESCRIPTOR: ui_push(&SCREEN_SCAN_DESCRIPTOR); break;
     case SRC_12:         SeedMnemonicEntryView(12); break;
     case SRC_24:         SeedMnemonicEntryView(24); break;
-    default:             not_yet("SeedElectrumMnemonicStartView"); break;
+    default:             SeedElectrumMnemonicStartView(); break;
     }
 }
 

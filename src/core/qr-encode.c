@@ -63,21 +63,21 @@ bool qr_encode_text(qr_encoder_t *e, const char *text, uint8_t *buf, size_t cap)
     return true;
 }
 
-bool qr_encode_xpub(qr_encoder_t *e, const seed_t *s, const char *path, btc_net_t net,
+bool qr_encode_xpub(qr_encoder_t *e, const seed_t *s, const char *path, btc_net_t net, btc_sig_t sig,
                     uint8_t *buf, size_t cap)
 {
     start(e, QR_OUT_STATIC, buf, cap);
-    if (!btc_xpub_export(s, path, net, (char *)buf, cap)) {
+    if (!btc_xpub_export(s, path, net, sig, (char *)buf, cap)) {
         return false;
     }
     e->len = strlen((const char *)buf);
     return true;
 }
 
-bool qr_encode_xpub_specter(qr_encoder_t *e, const seed_t *s, const char *path, btc_net_t net,
+bool qr_encode_xpub_specter(qr_encoder_t *e, const seed_t *s, const char *path, btc_net_t net, btc_sig_t sig,
                             qr_density_t density, uint8_t *buf, size_t cap)
 {
-    if (!qr_encode_xpub(e, s, path, net, buf, cap)) {
+    if (!qr_encode_xpub(e, s, path, net, sig, buf, cap)) {
         return false;
     }
     e->kind = QR_OUT_SPECTER;

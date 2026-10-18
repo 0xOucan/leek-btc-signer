@@ -122,7 +122,7 @@ static void test_export(void)
         CHECK(strcmp(fp, v->fingerprint) == 0, "fingerprint %zu: %s vs %s", i, fp, v->fingerprint);
         CHECK(btc_standard_path(v->net, v->sig, v->script, path, sizeof path) &&
               strcmp(path, v->path) == 0, "export path %zu", i);
-        bool ok = btc_xpub_export(&s, v->path, v->net, out, sizeof out);
+        bool ok = btc_xpub_export(&s, v->path, v->net, BTC_SIG_SINGLE, out, sizeof out);
         CHECK(ok && strcmp(out, v->xpub_export) == 0, "export %zu %s\n    got  %s\n    want %s",
               i, v->path, ok ? out : "-", v->xpub_export);
         seed_clear(&s);
