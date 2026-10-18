@@ -22,6 +22,7 @@
 #include "seed-storage.h"
 #include "settings.h"
 #include "views-seed.h"
+#include "views-multisig.h"
 #include "views.h"
 #include "wally_core.h"
 
@@ -57,6 +58,19 @@ void psbt_flow_clear(void)
     flow.len = 0;
     flow.seed = -1;
     flow.resume = false;
+}
+
+static void PSBTChangeDetailsView(int n);
+
+bool psbt_flow_resuming(void)
+{
+    return flow.resume;
+}
+
+void psbt_flow_return_to_change(void)
+{
+    flow.resume = false;
+    PSBTChangeDetailsView(0);
 }
 
 bool psbt_flow_loaded(void)
@@ -353,13 +367,26 @@ static void after_outputs(void)
     }
 }
 
+/* ---- PSBTAddressVerificationFailedView ------------------------------------ */
+
+static void PSBTAddressVerificationFailedView(bool is_change)
+{
+    char text[120];
+    snprintf(text, sizeof text, "Transaction's %s address could not be verified from wallet descriptor.",
+             is_change ? "change" : "self-transfer");
+    /* Reached with clear_history; the one way out goes home. */
+    refusal("PSBTAddressVerificationFailedView", NOTICE_DIRE, "Suspicious Transaction",
+            "Address Verification Failed", text);
+}
+
 static void change_select(int i)
 {
     const int n = view_arg();
     const psbt_review_t *r = &flow.review;
-    if (r->is_multisig && i == 0) {
-        /* Verify multisig change: needs the wallet descriptor (T47). */
-        not_yet("LoadMultisigWalletDescriptorView");
+    if (r->is_multisig && multisig_descriptor() == NULL && i == 0) {
+        /* "Verify multisig change": load the descriptor, then come back. */
+        flow.resume = true;     /* resume_main_flow = FLOW__PSBT */
+        LoadMultisigWalletDescriptorView(false);
         return;
     }
     if ((size_t)n + 1 < r->num_change) {
@@ -382,8 +409,17 @@ static void PSBTChangeDetailsView(int n)
     seed_fingerprint_hex(storage_seed(flow.seed), fp);
     path_text(c->path, c->path_len, path, sizeof path);
     /* Single sig change is proven the seed's own in parsing; multisig is
-       checked against a descriptor, which this port cannot load yet. */
-    const bool verified = !r->is_multisig;
+       checked against the wallet descriptor, once one is loaded. */
+    const ms_descriptor_t *d = multisig_descriptor();
+    const bool verified = !r->is_multisig || (d && psbt_verify_multisig_change(r, d, (size_t)n));
+    if (!verified && d) {
+        ui_note("change-unverified %d", n);
+        PSBTAddressVerificationFailedView(is_change);
+        return;
+    }
+    if (r->is_multisig && d) {
+        ui_note("change-verified %d", n);
+    }
     snprintf(text, sizeof text, "%s\n%s\n%s %s #%u\n%s: %s%s", amount(c->amount, amt, sizeof amt),
              c->address, r->is_multisig ? "Multisig" : "Single sig",
              is_change ? "change address" : "receive address",
@@ -391,7 +427,7 @@ static void PSBTChangeDetailsView(int n)
              verified ? "\nAddress verified!" : "");
     view_spec_t v = { .name = "PSBTChangeDetailsView", .title = is_change ? "Your Change" : "Self-Transfer",
                       .text = text, .select = change_select, .arg = n };
-    if (r->is_multisig) {
+    if (r->is_multisig && d == NULL) {
         v.buttons[v.n_buttons++] = is_change ? "Verify multisig change" : "Verify multisig addr";
         v.buttons[v.n_buttons++] = "Skip verification";
     } else {

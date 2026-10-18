@@ -17,5 +17,12 @@ void address_scanned(const char *address, btc_script_t script, btc_net_t net);
  * verification with it and returns true. */
 bool address_verify_resume(int seed);
 
+/* resume_main_flow == FLOW__VERIFY_MULTISIG_ADDR with an unverified
+ * address: the address, else NULL (MultisigWalletDescriptorView asks). */
+const char *address_multisig_resuming(void);
+/* Its "Verify addr": the flow cleared, SeedAddressVerificationView against
+ * the descriptor. */
+void address_multisig_verify(void);
+
 /* What MainMenuView drops: the unverified address and the flow. */
 void address_flow_clear(void);

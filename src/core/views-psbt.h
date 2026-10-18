@@ -31,6 +31,11 @@ void psbt_flow_clear(void);
 
 bool psbt_flow_loaded(void);
 
+/* resume_main_flow == FLOW__PSBT, as MultisigWalletDescriptorView asks. */
+bool psbt_flow_resuming(void);
+/* Its "Return to transaction": the flow cleared, PSBTChangeDetailsView(0). */
+void psbt_flow_return_to_change(void);
+
 /* For the flow tests: the PSBT in memory (signed, once signing has run),
  * the signing seed (-1 for none) and whether a parse is held. */
 const uint8_t *psbt_flow_bytes(size_t *len);

@@ -38,6 +38,21 @@ def flow_psbt(test):
     return m.group(1)
 
 
+def multisig_flow():
+    """test_flows_tools.py's multisig descriptor, and the first receive
+    address SeedSigner's explorer lists for it, from
+    sim/vectors/seedsigner_multisig.h."""
+    import re
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sim", "vectors",
+                        "seedsigner_multisig.h")
+    text = open(path).read()
+    desc = re.search(r'VEC_MS_FLOW_DESCRIPTOR\[\] = "([^"]+)";', text).group(1)
+    first = re.search(r'VEC_MS_FLOW_RECEIVE\[\] = \{\s*"([^"]+)"', text).group(1)
+    return desc, first
+
+
+MS_DESCRIPTOR, MS_FIRST = multisig_flow()
+
 # (actions, screen expected after them[, note expected]). An action is a key
 # name, a QR frame (bytes or str), or recorded(...).
 FLOWS = {
@@ -144,6 +159,19 @@ FLOWS = {
         (["OK"], "ToolsAddressExplorerAddressListView"),
         (["OK"], "ToolsAddressExplorerAddressView",
          "address 0 bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"),
+        (["OK"], "ToolsAddressExplorerAddressListView"),
+        (["HOLD"], "MainMenuView"),
+    ],
+    # SeedSigner's test__address_explorer__legacy_multisig_p2sh__flow: a
+    # wallet descriptor scanned, then its first address.
+    "multisig-explorer": [
+        (["DOWN", "DOWN", "OK"], "ToolsMenuView"),
+        (["DOWN", "DOWN", "DOWN", "OK"], "ToolsAddressExplorerSelectSourceView"),
+        (["DOWN", "OK"], "ScanWalletDescriptorView"),
+        ([MS_DESCRIPTOR.encode()], "MultisigWalletDescriptorView", "descriptor 2 of 3"),
+        (["OK"], "ToolsAddressExplorerAddressTypeView", "explorer descriptor 2 of 3"),
+        (["OK"], "ToolsAddressExplorerAddressListView"),
+        (["OK"], "ToolsAddressExplorerAddressView", "address 0 " + MS_FIRST),
         (["OK"], "ToolsAddressExplorerAddressListView"),
         (["HOLD"], "MainMenuView"),
     ],

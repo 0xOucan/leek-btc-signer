@@ -22,6 +22,11 @@ void tools_explorer_from_seed(int seed);
 /* SeedOptionsView's redirect when a seed was loaded for the explorer:
  * opens the script type and returns true. */
 bool tools_explorer_resume(int seed);
+/* resume_main_flow == FLOW__ADDRESS_EXPLORER (MultisigWalletDescriptorView
+ * asks), and its "Address explorer": the flow cleared, the descriptor's
+ * addresses. */
+bool tools_explorer_resuming(void);
+void tools_explorer_descriptor(void);
 /* What MainMenuView drops: resume_main_flow for the explorer. */
 void tools_flow_clear(void);
 

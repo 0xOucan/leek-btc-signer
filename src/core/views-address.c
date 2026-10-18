@@ -10,7 +10,9 @@
  * screen's tick, a few indexes at a time, so the keys stay live. The search
  * is unbounded, as SeedSigner's is; Cancel ends it.
  *
- * Multisig addresses need a wallet descriptor, which waits for T47.
+ * A multisig address is searched for in the wallet descriptor's addresses
+ * instead: the descriptor is loaded first (LoadMultisigWalletDescriptorView,
+ * resume_main_flow == FLOW__VERIFY_MULTISIG_ADDR) unless one already is.
  */
 #include "views-address.h"
 
@@ -21,15 +23,18 @@
 #include "seed-storage.h"
 #include "settings.h"
 #include "theme.h"
+#include "views-multisig.h"
 #include "views-seed.h"
 #include "views.h"
 #include "widgets.h"
 
 /* The Controller's unverified_address, and resume_main_flow ==
-   FLOW__VERIFY_SINGLESIG_ADDR. Addresses and xpubs are public. */
+   FLOW__VERIFY_SINGLESIG_ADDR or FLOW__VERIFY_MULTISIG_ADDR. Addresses and
+   xpubs are public. */
 static struct {
     bool active;
     bool resume;
+    bool ms_resume;
     char address[100];
     btc_script_t script;
     btc_net_t net;
@@ -44,11 +49,14 @@ static struct {
 /* Indexes checked per tick (receive and change each). About 2 ms an
    address on the ESP32-S3; a tick is 20 ms. */
 #define CHECKS_PER_TICK 2
+/* A multisig address derives every key: one index a tick. */
+#define CHECKS_PER_TICK_MULTISIG 1
 
 void address_flow_clear(void)
 {
     av.active = false;
     av.resume = false;
+    av.ms_resume = false;
 }
 
 /* SeedSigner's show_back_button=False. */
@@ -132,11 +140,15 @@ static void verify_render(const screen_t *s)
 static bool verify_tick(const screen_t *s)
 {
     (void)s;
-    for (int k = 0; k < CHECKS_PER_TICK; k++) {
+    const bool multi = av.sig == BTC_SIG_MULTI;
+    const ms_descriptor_t *d = multisig_descriptor();
+    for (int k = 0; k < (multi ? CHECKS_PER_TICK_MULTISIG : CHECKS_PER_TICK); k++) {
         char receive[100], change[100];
         const uint32_t i = av.index;
-        if (!btc_address(av.xpub, av.script, i, false, av.net, receive, sizeof receive) ||
-            !btc_address(av.xpub, av.script, i, true, av.net, change, sizeof change)) {
+        if (multi ? !d || !desc_address(d, i, false, av.net, receive, sizeof receive) ||
+                        !desc_address(d, i, true, av.net, change, sizeof change)
+                  : !btc_address(av.xpub, av.script, i, false, av.net, receive, sizeof receive) ||
+                        !btc_address(av.xpub, av.script, i, true, av.net, change, sizeof change)) {
             return false;
         }
         const bool is_receive = strcmp(receive, av.address) == 0;
@@ -180,18 +192,27 @@ static const screen_t VERIFY = {
     .tick = verify_tick,
 };
 
-static void SeedAddressVerificationView(int seed)
+/* `seed` -1: multisig, checked against the wallet descriptor. */
+static void SeedAddressVerificationView(int seed, bool replace)
 {
-    const seed_t *s = storage_seed(seed);
-    /* The xpub at the standard path, on the address's network. */
-    if (s == NULL || !btc_xpub(s->bytes, sizeof s->bytes, av.path, av.net, 0, av.xpub, sizeof av.xpub)) {
+    if (seed >= 0) {
+        const seed_t *s = storage_seed(seed);
+        /* The xpub at the standard path, on the address's network. */
+        if (s == NULL || !btc_xpub(s->bytes, sizeof s->bytes, av.path, av.net, 0, av.xpub, sizeof av.xpub)) {
+            return;
+        }
+    } else if (multisig_descriptor() == NULL) {
         return;
     }
     av.seed = seed;
     av.index = 0;
     av.sel = 0;
     ui_note("verify %s %s", av.path, av.address);
-    ui_push(&VERIFY);
+    if (replace) {
+        ui_replace(&VERIFY);
+    } else {
+        ui_push(&VERIFY);
+    }
 }
 
 /* ---- SeedSelectSeedView (flow: verify single sig address) ---------------- */
@@ -202,7 +223,7 @@ static void select_seed_select(int i)
 {
     const int n = storage_count();
     if (i < n) {
-        SeedAddressVerificationView(i);
+        SeedAddressVerificationView(i, false);
         return;
     }
     av.resume = true;
@@ -243,8 +264,37 @@ bool address_verify_resume(int seed)
         return false;
     }
     av.resume = false;
-    SeedAddressVerificationView(seed);
+    SeedAddressVerificationView(seed, false);
     return true;
+}
+
+const char *address_multisig_resuming(void)
+{
+    return av.active && av.ms_resume ? av.address : NULL;
+}
+
+void address_multisig_verify(void)
+{
+    av.ms_resume = false;
+    SeedAddressVerificationView(-1, false);
+}
+
+static bool set_path(void);
+
+/* Multisig: straight to the search with a descriptor loaded; else load
+   one first, and come back. */
+static void verify_multisig(bool replace)
+{
+    av.sig = BTC_SIG_MULTI;
+    if (!set_path()) {
+        return;
+    }
+    if (multisig_descriptor()) {
+        SeedAddressVerificationView(-1, replace);
+    } else {
+        av.ms_resume = true;
+        LoadMultisigWalletDescriptorView(replace);
+    }
 }
 
 /* ---- AddressVerificationSigTypeView -------------------------------------- */
@@ -262,8 +312,7 @@ static void sig_type_select(int i)
             SeedSelectSeedView(false);
         }
     } else {
-        av.sig = BTC_SIG_MULTI;
-        not_yet("LoadMultisigWalletDescriptorView");
+        verify_multisig(false);
     }
 }
 
@@ -300,9 +349,7 @@ void address_scanned(const char *address, btc_script_t script, btc_net_t net)
     case BTC_SCRIPT_P2WPKH:
         if (strlen(address) >= 62) {
             /* P2WSH: multisig (mainnet and testnet are 62, regtest 64). */
-            av.sig = BTC_SIG_MULTI;
-            ui_pop();
-            not_yet("LoadMultisigWalletDescriptorView");
+            verify_multisig(true);
             return;
         }
         break;

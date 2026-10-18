@@ -14,7 +14,8 @@
  * The address explorer: choose a seed (or load one, which resumes the
  * explorer as SeedSigner's resume_main_flow does), a script type, receive
  * or change, then pages of ten addresses, each shown as a QR on request.
- * Wallet descriptors (multisig) wait for T47.
+ * Or a multisig wallet descriptor instead of a seed: scanned, shown
+ * (MultisigWalletDescriptorView), then its addresses.
  */
 #include "views-tools.h"
 
@@ -30,6 +31,7 @@
 #include "secmem.h"
 #include "seed-storage.h"
 #include "theme.h"
+#include "views-multisig.h"
 #include "views-seed.h"
 #include "views.h"
 #include "wally_core.h"
@@ -262,6 +264,7 @@ void ToolsCalcFinalWordNumWordsView(void)
    path and xpub are public. */
 static struct {
     bool resume;
+    bool descriptor;        /* address_explorer_data["wallet_descriptor"] */
     int seed;
     script_opt_t script;
     char path[48];
@@ -289,6 +292,16 @@ static btc_script_t ex_btc_script(script_opt_t s)
     case SCRIPT_TR:  return BTC_SCRIPT_P2TR;
     default:         return BTC_SCRIPT_INVALID;
     }
+}
+
+/* Address `index` of the source: the seed's xpub, or the descriptor. */
+static bool ex_address(int index, bool is_change, char *out, size_t cap)
+{
+    if (ex.descriptor) {
+        const ms_descriptor_t *d = multisig_descriptor();
+        return d && desc_address(d, (uint32_t)index, is_change, SETTINGS.network, out, cap);
+    }
+    return btc_address(ex.xpub, ex_btc_script(ex.script), (uint32_t)index, is_change, SETTINGS.network, out, cap);
 }
 
 /* The View under the top one, by name. */
@@ -358,8 +371,7 @@ static void address_list_back(void)
     if (ex.start >= ADDRS_PER_SCREEN && strcmp(ui_top()->name, "ToolsAddressExplorerAddressListView") == 0) {
         ex.start -= ADDRS_PER_SCREEN;
         for (int k = 0; k < ADDRS_PER_SCREEN; k++) {
-            btc_address(ex.xpub, ex_btc_script(ex.script), (uint32_t)(ex.start + k), ex.is_change,
-                        SETTINGS.network, ex_addrs[k], sizeof ex_addrs[k]);
+            ex_address(ex.start + k, ex.is_change, ex_addrs[k], sizeof ex_addrs[k]);
         }
     }
 }
@@ -376,8 +388,7 @@ static void ToolsAddressExplorerAddressListView(bool is_change, int start, int s
                       .select = address_list_select, .back = address_list_back, .selected = selected };
     for (int k = 0; k < ADDRS_PER_SCREEN; k++) {
         const int index = start + k;
-        if (!btc_address(ex.xpub, ex_btc_script(ex.script), (uint32_t)index, is_change, SETTINGS.network,
-                         ex_addrs[k], sizeof ex_addrs[k])) {
+        if (!ex_address(index, is_change, ex_addrs[k], sizeof ex_addrs[k])) {
             snprintf(ex_addrs[k], sizeof ex_addrs[k], "?");
         }
         const size_t len = strlen(ex_addrs[k]);
@@ -392,7 +403,7 @@ static void ToolsAddressExplorerAddressListView(bool is_change, int start, int s
 
 static void address_type_select(int i)
 {
-    if (ex.script == SCRIPT_CUSTOM) {
+    if (!ex.descriptor && ex.script == SCRIPT_CUSTOM) {
         /* As SeedSigner's list does for a custom path. */
         UnhandledExceptionView("Exception", "tools_views.py, ToolsAddressExplorerAddressListView",
                                "Custom Derivation address explorer not yet implemented");
@@ -426,6 +437,7 @@ static void ToolsAddressExplorerAddressTypeView(int seed, script_opt_t script, b
         UnhandledExceptionView("ValueError", "seed.py, get_xpub", ex.path);
         return;
     }
+    ex.descriptor = false;
     ex.seed = seed;
     ex.script = script;
     char fp[9], text[96];
@@ -440,6 +452,30 @@ static void ToolsAddressExplorerAddressTypeView(int seed, script_opt_t script, b
         view_push(&v);
     }
     ui_note("explorer %s %s", fp, ex.path);
+}
+
+/* ToolsAddressExplorerAddressTypeView(seed=None): the wallet descriptor's
+   addresses. */
+void tools_explorer_descriptor(void)
+{
+    const ms_descriptor_t *d = multisig_descriptor();
+    ex.resume = false;
+    if (d == NULL) {
+        return;
+    }
+    ex.descriptor = true;
+    char text[64];
+    snprintf(text, sizeof text, "Wallet descriptor\n%d / %d multisig", d->threshold, d->n);
+    const view_spec_t v = { .name = "ToolsAddressExplorerAddressTypeView", .title = "Address Explorer",
+                            .text = text, .buttons = { "Receive addresses", "Change addresses" },
+                            .n_buttons = 2, .select = address_type_select, .back = address_type_back };
+    view_push(&v);
+    ui_note("explorer descriptor %d of %d", d->threshold, d->n);
+}
+
+bool tools_explorer_resuming(void)
+{
+    return ex.resume;
 }
 
 /* SeedExportXpubScriptTypeView as the explorer uses it: single sig, its own
@@ -522,7 +558,7 @@ static void select_source_select(int i)
     }
     switch (i - n) {
     case SRC_SCAN:       ui_push(&SCREEN_SCAN_SEED); break;
-    case SRC_DESCRIPTOR: not_yet("ScanWalletDescriptorView"); break;
+    case SRC_DESCRIPTOR: ui_push(&SCREEN_SCAN_DESCRIPTOR); break;
     case SRC_12:         SeedMnemonicEntryView(12); break;
     case SRC_24:         SeedMnemonicEntryView(24); break;
     default:             not_yet("SeedElectrumMnemonicStartView"); break;

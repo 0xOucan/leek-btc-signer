@@ -8,7 +8,8 @@
  * progress; for each scan it must end complete or not as SeedSigner did and
  * hand back the same PSBT bytes, seed words, address, settings or message.
  *
- * Wallet descriptor scans are decoded with T47; they are only counted here.
+ * Wallet descriptor scans are checked here frame by frame too; what each
+ * gives back is test_descriptor.c's.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +39,7 @@ static void rand_fill(void *p, unsigned n)
     memset(p, 0x5A, n);
 }
 
-static bool deferred(qr_type_t t)
+static bool is_wallet(qr_type_t t)
 {
     return t == QR_TYPE_WALLET_SPECTER || t == QR_TYPE_WALLET_GENERIC ||
            t == QR_TYPE_WALLET_CONFIGFILE;
@@ -111,15 +112,12 @@ static bool hex_parses(const char *h)
 static void test_scans(void)
 {
     printf("== scans, frame by frame\n");
-    unsigned frames = 0, scans = 0, skipped = 0, psbts = 0, seeds = 0, addrs = 0, refused_early = 0;
+    unsigned frames = 0, scans = 0, wallets = 0, psbts = 0, seeds = 0, addrs = 0, refused_early = 0;
     static char got[256];
 
     for (size_t i = 0; i < N(QR_SCANS); i++) {
         const qrv_scan_t *s = &QR_SCANS[i];
-        if (deferred((qr_type_t)s->type)) {
-            skipped++;
-            continue;
-        }
+        wallets += is_wallet((qr_type_t)s->type);
         qr_decoder_reset(&dec);
         bool ok = true;
         for (unsigned f = 0; f < s->n_frames && ok; f++) {
@@ -215,8 +213,7 @@ static void test_scans(void)
         }
     }
     printf("   %u scans, %u frames: every status, type and result as SeedSigner's\n", scans, frames);
-    printf("   (%u PSBTs, %u seeds, %u addresses; %u descriptor scans wait for T47)\n",
-           psbts, seeds, addrs, skipped);
+    printf("   (%u PSBTs, %u seeds, %u addresses, %u wallet descriptors)\n", psbts, seeds, addrs, wallets);
     printf("   %u unparseable PSBT refused before the parser, as listed in qr-decode.h\n",
            refused_early);
 }
@@ -235,11 +232,12 @@ static void test_differences(void)
           "a type change was not reported");
     CHECK(qr_decoder_address(&dec, NULL, NULL) != NULL, "the stray frame disturbed the result");
 
-    /* Wallet descriptors: detected, not decoded yet. */
+    /* A wallet descriptor embit would not parse: INVALID, as SeedSigner's
+       GenericWalletQrDecoder has it (test_descriptor.c has the rest). */
     qr_decoder_reset(&dec);
     const char *w = "wsh(sortedmulti(1,xpub/0/*))";
-    CHECK(qr_decoder_add(&dec, (const uint8_t *)w, strlen(w)) == QR_STATUS_UNSUPPORTED,
-          "a descriptor was not reported unsupported");
+    CHECK(qr_decoder_add(&dec, (const uint8_t *)w, strlen(w)) == QR_STATUS_INVALID,
+          "a bad descriptor was not INVALID");
 
     /* No frame at all. */
     CHECK(qr_decoder_add(&dec, NULL, 0) == QR_STATUS_FALSE, "NULL is FALSE");

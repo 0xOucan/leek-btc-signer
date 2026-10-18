@@ -30,7 +30,7 @@ It follows SeedSigner closely on purpose:
 ## Progress
 
 ```
-SeedSigner  ██████████████████░░  99 of 109 views (91%)
+SeedSigner  ███████████████████░  103 of 109 views (94%)
 ```
 
 ![SeedSigner views working on Leek BTC Signer, by area](docs/img/progress.svg)
@@ -77,9 +77,9 @@ are screens on top of it.
 | PSBT review and the anti-forgery checks | ✅ | ✅ the whole flow on screen: seed choice, overview, warnings, math, each recipient and change output, OP_RETURN, every refusal; plus three stricter refusals (below) |
 | PSBT signing: segwit, nested, legacy, taproot | ✅ | ✅ byte-identical signed PSBTs (taproot verified) |
 | Animated UR output of the signed PSBT | ✅ | ✅ shown after approval; parts identical to SeedSigner's |
-| Address explorer | ✅ | ✅ receive and change addresses page by page, each as a QR; identical to SeedSigner's for every script type and network; multisig descriptors in Phase 6 |
-| Address verification | ✅ | ✅ single sig: scan an address, pick or load the seed, search receive and change until it matches; multisig with descriptors in Phase 6 |
-| Multisig: descriptors, cosigner checks | ✅ | 🟡 multisig PSBTs reviewed and signed; change verification against a descriptor in Phase 6 |
+| Address explorer | ✅ | ✅ receive and change addresses page by page, each as a QR; identical to SeedSigner's for every script type and network, and for a multisig wallet descriptor |
+| Address verification | ✅ | ✅ scan an address, pick or load the seed (or the multisig wallet descriptor), search receive and change until it matches |
+| Multisig: descriptors, cosigner checks | ✅ | ✅ wallet descriptors from Specter JSON, text, setup files and UR bytes (not yet UR crypto-output); change verified against the descriptor, as SeedSigner verifies it |
 | BIP-85 child seeds | ✅ | ✅ 12 or 24 words at any index, shown and backup-tested like a seed |
 | Message signing | ✅ | ✅ signmessage requests reviewed page by page and signed to SeedSigner's exact signatures |
 | Settings and SettingsQR | ✅ | ✅ every setting at SeedSigner's menu level with its options; SettingsQR parsed as SeedSigner does (135 cases); kept in RAM until the vault (Phase 5) |
@@ -96,8 +96,8 @@ are screens on top of it.
 | xpub export: native and nested segwit, taproot, legacy, multisig paths, SLIP-132 versions | Logic done |
 | PSBT review: change detection, fee, OP_RETURN, the anti-forgery checks | Done |
 | PSBT signing: ECDSA and taproot key path | Done |
-| Address verification | Done, single sig |
-| QR decoding: UR, BBQr, Specter, base64/base43 PSBTs, every SeedQR form, addresses, sign-message | Done on the host, matches SeedSigner frame by frame |
+| Address verification | Done, single sig and multisig |
+| QR decoding: UR, BBQr, Specter, base64/base43 PSBTs, every SeedQR form, addresses, sign-message, wallet descriptors | Done on the host, matches SeedSigner frame by frame |
 | QR output: SeedQR, xpubs (static, Specter, UR), animated UR PSBTs | Done on the host, matches SeedSigner part by part |
 | The Scan screen: progress, SeedSigner's wrong-type and invalid errors | Done in QEMU, fed SeedSigner's recorded scans |
 | QR display: static and animated codes, brightness keys, read back off the framebuffer | Done on the host and QEMU |
@@ -128,7 +128,8 @@ embit version it pins and record what it does:
 |---|---|---|
 | Paths, xpubs, addresses, xpub exports, SeedQR, dice, BIP-85 | 290 | all match |
 | Every PSBT SeedSigner's own test suite parses | 207 | see below |
-| QR scans (SeedSigner's own decode tests and generated ones), frame by frame | 515 scans, 4827 frames | all match; descriptors wait for multisig |
+| QR scans (SeedSigner's own decode tests and generated ones), frame by frame | 515 scans, 4834 frames | all match |
+| Wallet descriptor scans, descriptors, multisig addresses, change verifications | 123, 17, 360, 21 | all match |
 | QR type detection | 2756 frames | all match |
 | QR output parts | 6246 | all identical |
 | QR symbols, module by module (python-qrcode) | 33, versions 1-25 | all identical |

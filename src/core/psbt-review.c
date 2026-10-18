@@ -8,6 +8,8 @@
  */
 #include "psbt-review.h"
 
+#include "descriptor.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -946,6 +948,23 @@ void psbt_review_free(psbt_review_t *r)
     free(r->change);
     free(r->dest);
     memset(r, 0, sizeof *r);
+}
+
+/* ---- verify_multisig_output ---------------------------------------------- */
+
+bool psbt_verify_multisig_change(const psbt_review_t *r, const ms_descriptor_t *d, size_t change_num)
+{
+    if (r->psbt == NULL || change_num >= r->num_change) {
+        return false;
+    }
+    const size_t i = r->change[change_num].output_index;
+    const unsigned char *spk;
+    size_t len;
+    uint64_t amount;
+    if (!output_at(r->psbt, i, &spk, &len, &amount) || i >= r->psbt->num_outputs) {
+        return false;
+    }
+    return desc_owns(d, &r->psbt->outputs[i], spk, len);
 }
 
 /* ---- has_matching_input_fingerprint ----------------------------------- */

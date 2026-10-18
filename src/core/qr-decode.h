@@ -16,12 +16,14 @@
  * Supported here: PSBTs as UR (crypto-psbt), BBQr (hex, base32, zlib),
  * Specter's pXofY, base64 and base43; SeedQR, CompactSeedQR, mnemonics and
  * four-letter mnemonics; addresses and BIP-21 URIs; SettingsQR; sign-message
- * requests; and UR bytes, crypto-output and crypto-account, assembled.
+ * requests; UR bytes, crypto-output and crypto-account, assembled; and
+ * wallet descriptors: Specter's JSON export (animated pXofY or one frame), a
+ * descriptor as text, a multisig setup file, and a setup file in UR bytes.
  *
- * Detected but not yet decoded: wallet descriptors (Specter JSON, a generic
- * descriptor, a multisig setup file, and the descriptor inside a UR output,
- * account or bytes). They belong to multisig, task T47. Their frames return
- * QR_STATUS_UNSUPPORTED rather than a guess.
+ * Not decoded: the descriptor inside a crypto-output UR, which SeedSigner
+ * reads with urtypes' Output. qr_is_wallet_descriptor() says it is one, as
+ * SeedSigner's is_wallet_descriptor does, but qr_decoder_descriptor() has
+ * nothing to give.
  *
  * ---------------------------------------------------------------------------
  * Where it is deliberately different
@@ -37,6 +39,10 @@
  * - A BBQr zlib stream that ends early gives no PSBT. SeedSigner inflates
  *   what is there and hands the prefix to its PSBT parser, which refuses it.
  * - An animated code is limited to QR_SEGMENTS_MAX parts and to the arena.
+ * - Specter wallet JSON nested deeper than 64 levels is INVALID; CPython's
+ *   json goes on to its recursion limit. A setup file's labels are
+ *   lowercased as ASCII.
+ * - A wallet descriptor is checked with libwally (descriptor.c), not embit.
  *
  * sim/test_qr_decode.c replays every scan in SeedSigner's own test suite, and
  * generated ones, against what SeedSigner did with them.
@@ -95,7 +101,6 @@ typedef enum {
     QR_STATUS_INVALID,
     QR_STATUS_TYPE_CHANGED,        /* SeedSigner raises */
     QR_STATUS_ERROR,               /* SeedSigner raises */
-    QR_STATUS_UNSUPPORTED,         /* detected; decoding comes with T47 */
 } qr_status_t;
 
 /* SeedSigner's lowercase QRType string, e.g. "psbt__ur2". */
@@ -179,6 +184,20 @@ bool qr_decoder_settings(const qr_decoder_t *d, const char **text, size_t *len);
  *  "'") and the message, borrowed from the arena. */
 bool qr_decoder_sign_message(const qr_decoder_t *d, const char **path, size_t *path_len,
                              const char **msg, size_t *msg_len);
+
+/** is_wallet_descriptor: a wallet type, or UR bytes holding a setup file
+ *  (complete). */
+bool qr_is_wallet_descriptor(const qr_decoder_t *d);
+
+/** get_wallet_descriptor(), NUL-terminated in `out`, as SeedSigner's
+ *  getter returns it (before ScanView's rewrite). False where it returns
+ *  None or raises, and for crypto-output. */
+bool qr_decoder_descriptor(const qr_decoder_t *d, char *out, size_t cap);
+
+/* qr-detect.c's pieces of SeedSigner's patterns, shared with the decoder:
+   Python's `$`, and `^p(\d+)of(\d+) ` (where it ends, or 0). */
+size_t qr_dollar_end(const char *s, size_t len);
+size_t qr_match_pxofy(const char *s, size_t len, const char **x, size_t *xn, const char **y, size_t *yn);
 
 /** A UR's assembled CBOR (bytes, crypto-output, crypto-account). */
 const uint8_t *qr_decoder_ur_cbor(const qr_decoder_t *d, size_t *len);

@@ -119,6 +119,11 @@ uint64_t psbt_total_sent(uint64_t total_out, const psbt_change_t *change, size_t
 /* has_high_fee(): fee above 25% of what is sent; never when nothing is. */
 bool psbt_fee_is_high(int64_t fee, uint64_t sent);
 
+/* verify_multisig_output(): does change output `change_num` belong to the
+ * wallet descriptor (embit's Descriptor.owns)? */
+struct ms_descriptor;
+bool psbt_verify_multisig_change(const psbt_review_t *r, const struct ms_descriptor *d, size_t change_num);
+
 /* has_matching_input_fingerprint(): a routing hint for choosing a seed,
  * which verifies nothing. True if any input names this seed's fingerprint,
  * or an all-zero one on a key the seed derives. */

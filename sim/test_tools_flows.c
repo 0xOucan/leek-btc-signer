@@ -495,10 +495,11 @@ static void test_verify_address_routes(void)
     verify("000000000000000000000000000000000000000000000003");
     STEP("ErrorView");
 
-    /* A P2WSH address is multisig: it needs a wallet descriptor (T47). */
+    /* A P2WSH address is multisig: load the wallet descriptor first
+       (test_multisig_flows.c goes on from here). */
     fresh();
     verify("bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3");
-    STEP("NotYetImplementedView");
+    STEP("LoadMultisigWalletDescriptorView");
 
     /* Nested segwit cannot say which it is: AddressVerificationSigTypeView. */
     fresh();

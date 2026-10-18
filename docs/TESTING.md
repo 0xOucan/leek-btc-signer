@@ -35,6 +35,15 @@ LeekWallet's `sim/` harness is carried over, with these additions:
   `test_psbt_flows` also walks every PSBT of SeedSigner's parser tests through
   the whole review, checking each View against SeedSigner's routing and each
   signed PSBT against SeedSigner's, on every display profile.
+  `test_multisig_flows.c` ports SeedSigner's two multisig flow tests and
+  reaches every `verify_multisig_output()` its parser tests make through the
+  PSBT review's "Verify multisig change"; where a wrong descriptor fails an
+  earlier change output, the flow ends there, as SeedSigner's would.
+- **Multisig descriptors** (`test_descriptor.c`, also in the Xtensa
+  self-test): every wallet descriptor scan SeedSigner's DecodeQR made (its
+  tests' and generated ones, 46 of them at the corners of its JSON and
+  setup-file parsing), ScanView's rewrite, embit's policy and fingerprints,
+  360 multisig addresses and 21 change verifications.
 
 ### Desktop simulator
 

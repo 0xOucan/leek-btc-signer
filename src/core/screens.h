@@ -13,6 +13,7 @@ extern const screen_t SCREEN_VERSION;     /* VersionView */
 /* SeedSigner's ScanView, ScanPSBTView and ScanSeedQRView. */
 extern const screen_t SCREEN_SCAN, SCREEN_SCAN_PSBT, SCREEN_SCAN_SEED;
 extern const screen_t SCREEN_SCAN_CONFIRM_SEEDQR;
+extern const screen_t SCREEN_SCAN_DESCRIPTOR;       /* ScanWalletDescriptorView */
 extern const screen_t SCREEN_SCAN_ADDRESS;          /* ScanAddressView */   /* SeedTranscribeSeedQRConfirmScanView */
 
 /* Text for the Version screen; set once at boot. */

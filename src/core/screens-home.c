@@ -12,6 +12,7 @@
 #include "theme.h"
 #include "views-address.h"
 #include "views-message.h"
+#include "views-multisig.h"
 #include "views-power.h"
 #include "views-psbt.h"
 #include "views-seed.h"
@@ -151,6 +152,7 @@ static void home_resume(const screen_t *s)
     tools_flow_clear();
     address_flow_clear();
     message_flow_clear();
+    multisig_flow_clear();
 }
 
 /* SeedSigner's main menu has a power button where other screens have

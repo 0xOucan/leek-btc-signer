@@ -7,12 +7,14 @@
  * leaves on the first COMPLETE or INVALID, as SeedSigner's scan loop does. A
  * stray frame of another type, which SeedSigner would raise on, is ignored.
  *
- * A seed goes on to be finalised and a PSBT to be reviewed and signed
- * (views-seed.c, views-psbt.c). Other kinds wait for their views; until
- * then the result screen says what was scanned. The decoder, the frames
+ * A seed goes on to be finalised, a PSBT to be reviewed and signed, a
+ * wallet descriptor to be loaded (views-seed.c, views-psbt.c,
+ * views-multisig.c), and so on. A crypto-output UR's descriptor is not
+ * decoded (qr-decode.h); the result screen says so. The decoder, the frames
  * and the seed are wiped on the way out.
- * The flavours mirror ScanView, ScanPSBTView and ScanSeedQRView: the last two
- * refuse a code of the wrong kind with SeedSigner's "Wrong QR Type".
+ * The flavours mirror ScanView, ScanPSBTView, ScanSeedQRView,
+ * ScanAddressView and ScanWalletDescriptorView: all but the first refuse a
+ * code of the wrong kind with SeedSigner's "Wrong QR Type".
  */
 #include "screens.h"
 
@@ -30,6 +32,7 @@
 #include "settings.h"
 #include "views-address.h"
 #include "views-message.h"
+#include "views-multisig.h"
 #include "views-settings.h"
 #include "views-psbt.h"
 #include "views-seed.h"
@@ -39,7 +42,7 @@
 
 /* SCAN_CONFIRM is SeedTranscribeSeedQRConfirmScanView: any code ends it,
    and views-seed.c judges whether it is the SeedQR just transcribed. */
-typedef enum { SCAN_ANY, SCAN_PSBT, SCAN_SEED, SCAN_CONFIRM, SCAN_ADDRESS } scan_kind_t;
+typedef enum { SCAN_ANY, SCAN_PSBT, SCAN_SEED, SCAN_CONFIRM, SCAN_ADDRESS, SCAN_DESCRIPTOR } scan_kind_t;
 
 /* Largest arena tried first: PSRAM on the board (ESP-IDF's malloc puts
    anything over 16 KB there); QEMU has none, so it falls back. */
@@ -100,7 +103,19 @@ static bool kind_ok(qr_type_t t)
 {
     return scan.kind == SCAN_ANY || (scan.kind == SCAN_PSBT && qr_is_psbt(t)) ||
            (scan.kind == SCAN_SEED && qr_is_seed(t)) ||
-           (scan.kind == SCAN_ADDRESS && t == QR_TYPE_BITCOIN_ADDRESS);
+           (scan.kind == SCAN_ADDRESS && t == QR_TYPE_BITCOIN_ADDRESS) ||
+           (scan.kind == SCAN_DESCRIPTOR && qr_is_wallet_descriptor(scan.dec));
+}
+
+/* Each flavour's invalid_qr_type_message. */
+static const char *expected(void)
+{
+    switch (scan.kind) {
+    case SCAN_PSBT:       return "Expected a transaction";
+    case SCAN_ADDRESS:    return "Expected an address QR";
+    case SCAN_DESCRIPTOR: return "Expected a wallet descriptor QR";
+    default:              return "Expected a SeedQR";
+    }
 }
 
 typedef enum { ROUTE_RESULT, ROUTE_SEED, ROUTE_DONE } route_t;
@@ -112,9 +127,20 @@ static route_t describe(void)
 {
     const qr_type_t t = scan.dec->type;
     if (!kind_ok(t)) {
-        result("Error", "Wrong QR Type\n\nExpected a %s, received \"%s\" format.",
-               scan.kind == SCAN_PSBT ? "transaction" : scan.kind == SCAN_ADDRESS ? "an address QR" : "SeedQR",
-               qr_type_name(t));
+        /* The QRType as SeedSigner words it: "__" as ": ", "_" as " ". */
+        char type[40];
+        size_t k = 0;
+        for (const char *p = qr_type_name(t); *p && k + 2 < sizeof type; p++) {
+            if (p[0] == '_' && p[1] == '_') {
+                type[k++] = ':';
+                type[k++] = ' ';
+                p++;
+            } else {
+                type[k++] = *p == '_' ? ' ' : *p;
+            }
+        }
+        type[k] = '\0';
+        result("Error", "Wrong QR Type\n\n%s, received \"%s\" format", expected(), type);
         result_view("ErrorView");
         ui_note("wrong-type %s", qr_type_name(t));
         return ROUTE_RESULT;
@@ -178,6 +204,21 @@ static route_t describe(void)
         }
         return ROUTE_DONE;
     }
+    if (qr_is_wallet_descriptor(scan.dec)) {
+        if (t == QR_TYPE_OUTPUT_UR) {
+            result("Scan", "A crypto-output descriptor is not decoded by this port.");
+            result_view("NotYetImplementedView");
+            ui_note("other %s", qr_type_name(t));
+            return ROUTE_RESULT;
+        }
+        char *text = malloc(DESC_TEXT_MAX);
+        const bool ok = text && qr_decoder_descriptor(scan.dec, text, DESC_TEXT_MAX);
+        ui_note("descriptor-scan %s %s", qr_type_name(t), ok ? "ok" : "none");
+        /* Leaves this screen, which wipes the decoder; the text is ours. */
+        multisig_scanned(ok ? text : NULL);
+        free(text);
+        return ROUTE_DONE;
+    }
     if (t == QR_TYPE_BITCOIN_ADDRESS) {
         btc_script_t script;
         btc_net_t net;
@@ -212,7 +253,7 @@ static route_t describe(void)
         result_view("ErrorView");
         return ROUTE_RESULT;
     }
-    result("Scan", "Received \"%s\".\n\nUsing it arrives with T47.", qr_type_name(t));
+    result("Scan", "Received \"%s\".\n\nThis port does nothing with it yet.", qr_type_name(t));
     result_view("NotYetImplementedView");
     ui_note("other %s", qr_type_name(t));
     return ROUTE_RESULT;
@@ -271,7 +312,8 @@ static void scan_render(const screen_t *s)
     (void)s;
     ui_draw_title(scan.kind == SCAN_PSBT ? "Scan PSBT" : scan.kind == SCAN_SEED ? "Scan SeedQR"
                   : scan.kind == SCAN_CONFIRM ? "Confirm SeedQR"
-                  : scan.kind == SCAN_ADDRESS ? "Verify Address" : "Scan");
+                  : scan.kind == SCAN_ADDRESS ? "Verify Address"
+                  : scan.kind == SCAN_DESCRIPTOR ? "Multisig" : "Scan");
     int y = THEME.top_h + THEME.pad + 2;
     if (scan.no_memory) {
         ui_draw_wrapped(y, "Not enough memory to scan.", C_WARN);
@@ -280,7 +322,8 @@ static void scan_render(const screen_t *s)
     y = ui_draw_wrapped(y, scan.kind == SCAN_PSBT ? "Scan Transaction"
                            : scan.kind == SCAN_SEED ? "Scan SeedQR"
                            : scan.kind == SCAN_CONFIRM ? "Scan your SeedQR"
-                           : scan.kind == SCAN_ADDRESS ? "Scan address QR" : "Scan a QR code", C_FG);
+                           : scan.kind == SCAN_ADDRESS ? "Scan address QR"
+                           : scan.kind == SCAN_DESCRIPTOR ? "Scan descriptor" : "Scan a QR code", C_FG);
     if (scan.dec && scan.dec->type != QR_TYPE_NONE && scan.pct > 0) {
         /* SeedSigner's progress bar, under the text. */
         const int bar_y = GFX_H - THEME.line_h - 8;
@@ -310,7 +353,7 @@ static bool scan_tick(const screen_t *s)
                 qr_decoder_percent(scan.dec, true));
         changed = true;
         if (scan.kind == SCAN_CONFIRM &&
-            (st == QR_STATUS_COMPLETE || st == QR_STATUS_INVALID || st == QR_STATUS_UNSUPPORTED)) {
+            (st == QR_STATUS_COMPLETE || st == QR_STATUS_INVALID)) {
             uint16_t words[SEED_MAX_WORDS];
             size_t n = 0;
             if (st == QR_STATUS_COMPLETE && qr_is_seed(scan.dec->type)) {
@@ -344,13 +387,6 @@ static bool scan_tick(const screen_t *s)
             ui_replace(&SCAN_RESULT);
             return true;
         }
-        if (st == QR_STATUS_UNSUPPORTED) {
-            result_view("NotYetImplementedView");
-            result("Not yet", "Wallet descriptors arrive with multisig, T47.");
-            ui_note("unsupported %s", qr_type_name(scan.dec->type));
-            ui_replace(&SCAN_RESULT);
-            return true;
-        }
         scan.pct = qr_decoder_percent(scan.dec, true);
     }
     return changed;
@@ -367,6 +403,10 @@ const screen_t SCREEN_SCAN_PSBT = {
 const screen_t SCREEN_SCAN_ADDRESS = {
     .name = "ScanAddressView", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
     .tick = scan_tick, .ctx = (void *)(intptr_t)SCAN_ADDRESS,
+};
+const screen_t SCREEN_SCAN_DESCRIPTOR = {
+    .name = "ScanWalletDescriptorView", .enter = scan_enter, .render = scan_render, .leave = scan_leave,
+    .tick = scan_tick, .ctx = (void *)(intptr_t)SCAN_DESCRIPTOR,
 };
 const screen_t SCREEN_SCAN_CONFIRM_SEEDQR = {
     .name = "SeedTranscribeSeedQRConfirmScanView", .enter = scan_enter, .render = scan_render,

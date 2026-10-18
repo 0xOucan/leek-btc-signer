@@ -23,6 +23,7 @@ The other generators run the same way:
 | `gen_tools_vectors.py` | `sim/vectors/seedsigner_tools.h` (SeedSigner's dice and final-word Views, run through its FlowTest harness by `tools_flows_capture.py`) | pytest |
 | `gen_settings_vectors.py` | `sim/vectors/seedsigner_settings.h` (SeedSigner's SettingsDefinition and SettingsQR parses, as SeedSigner OS has them with no microSD card; `settings_capture.py` records the parses its tests make) | pytest |
 | `gen_message_vectors.py` | `sim/vectors/seedsigner_message.h` (parse_derivation_path, and the address and signature of SeedSigner's message signing) | |
+| `gen_multisig_vectors.py` | `sim/vectors/seedsigner_multisig.h` (wallet descriptor scans through DecodeQR, ScanView's rewrite, embit's policy, fingerprints and multisig addresses, `verify_multisig_output()`, and what `test_flows_tools.py`'s multisig flows list and verify; `multisig_capture.py` records the calls SeedSigner's tests make) | pytest, urtypes |
 | `gen_qr_vectors.py` | `sim/vectors/seedsigner_qr.h` | pytest, and SeedSigner's full `requirements.txt` (urtypes, pyzbar, qrcode, Pillow), installed with `--require-hashes` |
 
 The output names the SeedSigner commit it was generated from.

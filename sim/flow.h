@@ -20,6 +20,7 @@
 #include "ui.h"
 #include "views-address.h"
 #include "views-message.h"
+#include "views-multisig.h"
 #include "views-psbt.h"
 #include "views-seed.h"
 #include "keypad.h"
@@ -171,6 +172,7 @@ static inline void fresh(void)
     tools_flow_clear();
     address_flow_clear();
     message_flow_clear();
+    multisig_flow_clear();
     storage_wipe_all();
     settings_reset();
     ui_init(&SCREEN_HOME);

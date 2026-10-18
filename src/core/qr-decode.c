@@ -2,8 +2,10 @@
 
 #include "qr-decode.h"
 
+#include <stdlib.h>
 #include <string.h>
 
+#include "descriptor.h"
 #include "pytext.h"
 #include "tinf.h"
 #include "wally_core.h"
@@ -29,7 +31,7 @@ static bool is_ur(qr_type_t t)
 
 static bool is_animated(qr_type_t t)
 {
-    return t == QR_TYPE_PSBT_SPECTER || t == QR_TYPE_PSBT_BBQR;
+    return t == QR_TYPE_PSBT_SPECTER || t == QR_TYPE_PSBT_BBQR || t == QR_TYPE_WALLET_SPECTER;
 }
 
 void qr_decoder_init(qr_decoder_t *d, uint8_t *arena, size_t arena_cap)
@@ -285,6 +287,372 @@ static qr_status_t add_sign_message(qr_decoder_t *d, const char *s, size_t len)
     return QR_STATUS_COMPLETE;
 }
 
+/* ------------------------------------------------------------- wallets */
+
+/* SpecterWalletQrDecoder's JSON: json.loads() of the joined segments, read
+   in place, segment by segment. Strict, as CPython's scanner is; NaN and
+   Infinity are taken, as it takes them. Nesting deeper than JSON_DEPTH is
+   refused (CPython would go on to its recursion limit). */
+#define JSON_DEPTH 64
+
+typedef struct {
+    const qr_decoder_t *d;
+    uint32_t seg;
+    size_t off;
+} jreader_t;
+
+/* Where a string's decoded UTF-8 goes: kept while it fits, and watched for
+   "descriptor" in it. */
+typedef struct {
+    char *buf;
+    size_t cap, n;
+    bool overflow, lone_surrogate;
+    int match;                      /* how much of "descriptor" just went by */
+    bool found;
+} jsink_t;
+
+static const char DESCRIPTOR_KEY[] = "descriptor";
+
+static int jr_peek(jreader_t *r)
+{
+    const qr_decoder_t *d = r->d;
+    while (r->seg < d->total && r->off >= d->seg_len[r->seg]) {
+        r->seg++;
+        r->off = 0;
+    }
+    if (r->seg >= d->total) {
+        return -1;
+    }
+    return (uint8_t)d->text[d->seg_off[r->seg] - 1 + r->off];
+}
+
+static void jr_next(jreader_t *r)
+{
+    if (jr_peek(r) >= 0) {
+        r->off++;
+    }
+}
+
+static void jr_ws(jreader_t *r)
+{
+    for (int c = jr_peek(r); c == ' ' || c == '\t' || c == '\n' || c == '\r'; c = jr_peek(r)) {
+        jr_next(r);
+    }
+}
+
+static bool jr_lit(jreader_t *r, const char *lit)
+{
+    for (; *lit; lit++) {
+        if (jr_peek(r) != (uint8_t)*lit) {
+            return false;
+        }
+        jr_next(r);
+    }
+    return true;
+}
+
+static void sink_put(jsink_t *k, uint8_t b)
+{
+    if (k == NULL) {
+        return;
+    }
+    if (k->buf != NULL) {
+        if (k->n + 1 < k->cap) {
+            k->buf[k->n++] = (char)b;
+            k->buf[k->n] = '\0';
+        } else {
+            k->overflow = true;
+        }
+    }
+    /* "descriptor" has no repeated prefix: a mismatch restarts at its 'd'. */
+    if (b == (uint8_t)DESCRIPTOR_KEY[k->match]) {
+        if (++k->match == (int)sizeof DESCRIPTOR_KEY - 1) {
+            k->found = true;
+            k->match = 0;
+        }
+    } else {
+        k->match = b == 'd' ? 1 : 0;
+    }
+}
+
+static void sink_cp(jsink_t *k, uint32_t cp)
+{
+    if (cp < 0x80) {
+        sink_put(k, (uint8_t)cp);
+    } else if (cp < 0x800) {
+        sink_put(k, (uint8_t)(0xC0 | (cp >> 6)));
+        sink_put(k, (uint8_t)(0x80 | (cp & 0x3F)));
+    } else if (cp < 0x10000) {
+        sink_put(k, (uint8_t)(0xE0 | (cp >> 12)));
+        sink_put(k, (uint8_t)(0x80 | ((cp >> 6) & 0x3F)));
+        sink_put(k, (uint8_t)(0x80 | (cp & 0x3F)));
+    } else {
+        sink_put(k, (uint8_t)(0xF0 | (cp >> 18)));
+        sink_put(k, (uint8_t)(0x80 | ((cp >> 12) & 0x3F)));
+        sink_put(k, (uint8_t)(0x80 | ((cp >> 6) & 0x3F)));
+        sink_put(k, (uint8_t)(0x80 | (cp & 0x3F)));
+    }
+}
+
+static bool jr_hex4(jreader_t *r, uint32_t *v)
+{
+    *v = 0;
+    for (int i = 0; i < 4; i++) {
+        const int c = jr_peek(r);
+        uint32_t h;
+        if (c >= '0' && c <= '9') h = (uint32_t)(c - '0');
+        else if (c >= 'a' && c <= 'f') h = (uint32_t)(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F') h = (uint32_t)(c - 'A' + 10);
+        else return false;
+        *v = *v << 4 | h;
+        jr_next(r);
+    }
+    return true;
+}
+
+/* A string, at its opening quote, decoded into `k` (which may be NULL). */
+static bool json_string(jreader_t *r, jsink_t *k)
+{
+    jr_next(r);
+    for (;;) {
+        const int c = jr_peek(r);
+        if (c < 0x20) {
+            return false;           /* the end, or a control character */
+        }
+        jr_next(r);
+        if (c == '"') {
+            return true;
+        }
+        if (c != '\\') {
+            sink_put(k, (uint8_t)c);
+            continue;
+        }
+        const int e = jr_peek(r);
+        jr_next(r);
+        static const char ESC[] = "\"\\/bfnrt", VAL[] = "\"\\/\b\f\n\r\t";
+        const char *p = e > 0 ? strchr(ESC, e) : NULL;
+        if (p != NULL && *p) {
+            sink_put(k, (uint8_t)VAL[p - ESC]);
+            continue;
+        }
+        uint32_t cp;
+        if (e != 'u' || !jr_hex4(r, &cp)) {
+            return false;
+        }
+        if (cp >= 0xD800 && cp <= 0xDBFF) {
+            /* A pair makes one code point; CPython keeps a lone half. */
+            jreader_t save = *r;
+            uint32_t lo;
+            if (jr_lit(r, "\\u") && jr_hex4(r, &lo) && lo >= 0xDC00 && lo <= 0xDFFF) {
+                cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
+            } else {
+                *r = save;
+                if (k) k->lone_surrogate = true;
+            }
+        } else if (cp >= 0xDC00 && cp <= 0xDFFF) {
+            if (k) k->lone_surrogate = true;
+        }
+        sink_cp(k, cp);
+    }
+}
+
+/* -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][-+]?[0-9]+)? or -Infinity. A '.' or
+   'e' not followed by digits is left over, and nothing valid follows a
+   value with one of those, so it fails here instead. */
+static bool json_number(jreader_t *r)
+{
+    if (jr_peek(r) == '-') {
+        jr_next(r);
+        if (jr_peek(r) == 'I') {
+            return jr_lit(r, "Infinity");
+        }
+    }
+    int c = jr_peek(r);
+    if (c == '0') {
+        jr_next(r);
+    } else if (c >= '1' && c <= '9') {
+        while ((c = jr_peek(r)) >= '0' && c <= '9') jr_next(r);
+    } else {
+        return false;
+    }
+    if (jr_peek(r) == '.') {
+        jr_next(r);
+        if ((c = jr_peek(r)) < '0' || c > '9') return false;
+        while ((c = jr_peek(r)) >= '0' && c <= '9') jr_next(r);
+    }
+    if ((c = jr_peek(r)) == 'e' || c == 'E') {
+        jr_next(r);
+        if ((c = jr_peek(r)) == '+' || c == '-') jr_next(r);
+        if ((c = jr_peek(r)) < '0' || c > '9') return false;
+        while ((c = jr_peek(r)) >= '0' && c <= '9') jr_next(r);
+    }
+    return true;
+}
+
+typedef enum { SJ_INVALID, SJ_RAISES, SJ_NO_DESCRIPTOR, SJ_OK } specter_json_t;
+
+/* What the top level found: the "descriptor" key or element, and the
+   descriptor string itself (the last one, as a dict keeps it). */
+typedef struct {
+    bool found, desc_ok;
+    char *out;
+    size_t cap;
+} jtop_t;
+
+static bool json_value(jreader_t *r, int depth, jtop_t *top);
+
+static bool json_container(jreader_t *r, int depth, jtop_t *top)
+{
+    const bool object = jr_peek(r) == '{';
+    const int close = object ? '}' : ']';
+    if (depth >= JSON_DEPTH) {
+        return false;
+    }
+    jr_next(r);
+    jr_ws(r);
+    if (jr_peek(r) == close) {
+        jr_next(r);
+        return true;
+    }
+    for (;;) {
+        bool is_key = false;
+        if (object) {
+            if (jr_peek(r) != '"') {
+                return false;
+            }
+            char key[sizeof DESCRIPTOR_KEY];
+            jsink_t k = { .buf = key, .cap = sizeof key };
+            key[0] = '\0';
+            if (!json_string(r, &k)) {
+                return false;
+            }
+            is_key = top && !k.overflow && strcmp(key, DESCRIPTOR_KEY) == 0;
+            jr_ws(r);
+            if (jr_peek(r) != ':') {
+                return false;
+            }
+            jr_next(r);
+            jr_ws(r);
+        }
+        if (top && object && is_key) {
+            /* data['descriptor'] */
+            top->found = true;
+            top->desc_ok = false;
+            if (jr_peek(r) == '"') {
+                jsink_t v = { .buf = top->out, .cap = top->cap };
+                if (!json_string(r, &v)) {
+                    return false;
+                }
+                top->desc_ok = top->out != NULL && !v.overflow && !v.lone_surrogate;
+            } else if (!json_value(r, depth + 1, NULL)) {
+                return false;
+            }
+        } else if (top && !object && jr_peek(r) == '"') {
+            /* "descriptor" in a list: an element equal to it */
+            char el[sizeof DESCRIPTOR_KEY];
+            jsink_t v = { .buf = el, .cap = sizeof el };
+            el[0] = '\0';
+            if (!json_string(r, &v)) {
+                return false;
+            }
+            if (!v.overflow && strcmp(el, DESCRIPTOR_KEY) == 0) {
+                top->found = true;
+            }
+        } else if (!json_value(r, depth + 1, NULL)) {
+            return false;
+        }
+        jr_ws(r);
+        const int c = jr_peek(r);
+        jr_next(r);
+        if (c == close) {
+            return true;
+        }
+        if (c != ',') {
+            return false;
+        }
+        jr_ws(r);
+    }
+}
+
+static bool json_value(jreader_t *r, int depth, jtop_t *top)
+{
+    const int c = jr_peek(r);
+    switch (c) {
+    case '{':
+    case '[':
+        return json_container(r, depth, top);
+    case '"': {
+        jsink_t k = { 0 };
+        if (!json_string(r, &k)) {
+            return false;
+        }
+        if (top) {
+            top->found = k.found;   /* "descriptor" in a str: a substring */
+        }
+        return true;
+    }
+    case 'n': return jr_lit(r, "null");
+    case 't': return jr_lit(r, "true");
+    case 'f': return jr_lit(r, "false");
+    case 'N': return jr_lit(r, "NaN");
+    case 'I': return jr_lit(r, "Infinity");
+    default:  return json_number(r);
+    }
+}
+
+/* is_valid, and get_wallet_descriptor() into `out` (if not NULL). A list
+   or a string that holds "descriptor" is valid, but data['descriptor']
+   then raises; so does a descriptor that is not a string, and one that
+   CPython would not encode (a lone surrogate) or that does not fit. */
+static specter_json_t specter_json(const qr_decoder_t *d, char *out, size_t cap)
+{
+    jreader_t r = { .d = d };
+    jtop_t top = { .out = out, .cap = cap };
+    jr_ws(&r);
+    const int first = jr_peek(&r);
+    if (!json_value(&r, 0, &top)) {
+        return SJ_INVALID;
+    }
+    jr_ws(&r);
+    if (jr_peek(&r) >= 0) {
+        return SJ_INVALID;          /* "Extra data" */
+    }
+    if (first != '{' && first != '[' && first != '"') {
+        return SJ_RAISES;           /* `in` a number, a bool or None */
+    }
+    if (!top.found) {
+        return SJ_INVALID;
+    }
+    return first == '{' && top.desc_ok ? SJ_OK : SJ_NO_DESCRIPTOR;
+}
+
+/* GenericWalletQrDecoder and MultiSigConfigFileQRDecoder: the descriptor,
+   as scanned or made from the setup file, must parse. A setup file that
+   multisig_setup_file_to_descriptor() refuses raises. */
+static qr_status_t add_wallet(qr_decoder_t *d, const char *s, size_t len)
+{
+    bool ok;
+    if (d->type == QR_TYPE_WALLET_CONFIGFILE) {
+        char *desc = malloc(DESC_TEXT_MAX);
+        if (desc == NULL) {
+            return QR_STATUS_ERROR;
+        }
+        if (!desc_from_setup_file(s, len, desc, DESC_TEXT_MAX)) {
+            free(desc);
+            return QR_STATUS_ERROR;
+        }
+        ok = desc_check(desc, strlen(desc));
+        free(desc);
+    } else {
+        ok = desc_check(s, len);
+    }
+    if (!ok) {
+        return QR_STATUS_INVALID;
+    }
+    d->complete = true;
+    return QR_STATUS_COMPLETE;
+}
+
 /* ------------------------------------------------------------- animated */
 
 /* Specter "pXofY data" or BBQr "B$<enc>P<total><index>data": the total, the
@@ -308,6 +676,30 @@ static bool parse_animated(const qr_decoder_t *d, const char *s, size_t len,
         *body = s + 8;
         *body_len = len - 8;
         py_strip(body, body_len);
+        return true;
+    }
+
+    if (d->type == QR_TYPE_WALLET_SPECTER) {
+        /* SpecterWalletQrDecoder: the numbers from `^p(\d+)of(\d+) `, or
+           part 1 of 1 without them; the data is `(.+$)` after them, or the
+           whole frame where that does not match (a line break inside). */
+        const char *x, *y;
+        size_t xn, yn;
+        const size_t start = qr_match_pxofy(s, len, &x, &xn, &y, &yn);
+        *num = *total = 1;
+        *body = s;
+        *body_len = len;
+        if (start == 0) {
+            return true;
+        }
+        if (!py_int(x, xn, num) || !py_int(y, yn, total)) {
+            return false;
+        }
+        const size_t end = qr_dollar_end(s, len);
+        if (end > start && memchr(s + start, '\n', end - start) == NULL) {
+            *body = s + start;
+            *body_len = end - start;
+        }
         return true;
     }
 
@@ -390,6 +782,16 @@ static qr_status_t add_animated(qr_decoder_t *d, const char *s, size_t len)
     }
     d->collected++;
     if (d->collected == d->total) {
+        if (d->type == QR_TYPE_WALLET_SPECTER) {
+            /* is_valid: the joined segments are JSON with a "descriptor". */
+            const specter_json_t r = specter_json(d, NULL, 0);
+            if (r == SJ_INVALID) {
+                return QR_STATUS_INVALID;
+            }
+            if (r == SJ_RAISES) {
+                return QR_STATUS_ERROR;
+            }
+        }
         d->complete = true;
         return QR_STATUS_COMPLETE;
     }
@@ -420,10 +822,6 @@ qr_status_t qr_decoder_add(qr_decoder_t *d, const uint8_t *data, size_t len)
     case QR_TYPE_INVALID:
         return QR_STATUS_INVALID;
 
-    case QR_TYPE_WALLET_SPECTER:
-    case QR_TYPE_WALLET_GENERIC:
-    case QR_TYPE_WALLET_CONFIGFILE:
-        return QR_STATUS_UNSUPPORTED;
 
     case QR_TYPE_PSBT_UR2:
     case QR_TYPE_OUTPUT_UR:
@@ -442,6 +840,7 @@ qr_status_t qr_decoder_add(qr_decoder_t *d, const uint8_t *data, size_t len)
 
     case QR_TYPE_PSBT_SPECTER:
     case QR_TYPE_PSBT_BBQR:
+    case QR_TYPE_WALLET_SPECTER:
         return add_animated(d, s, len);
 
     default:
@@ -475,6 +874,9 @@ qr_status_t qr_decoder_add(qr_decoder_t *d, const uint8_t *data, size_t len)
         return add_address(d, s, len);
     case QR_TYPE_SIGN_MESSAGE:
         return add_sign_message(d, s, len);
+    case QR_TYPE_WALLET_GENERIC:
+    case QR_TYPE_WALLET_CONFIGFILE:
+        return add_wallet(d, s, len);
     case QR_TYPE_PSBT_BASE64:
     case QR_TYPE_PSBT_BASE43:
     case QR_TYPE_SETTINGS:
@@ -490,6 +892,11 @@ int qr_decoder_percent(const qr_decoder_t *d, bool weight_mixed)
 {
     if (is_ur(d->type)) {
         return (int)(ur_decoder_progress(&d->ur, weight_mixed) * 100.0);
+    }
+    if (d->type == QR_TYPE_WALLET_SPECTER) {
+        /* Not among the animated types get_percent_complete() counts: all
+           or nothing for one part, 0 for more. */
+        return d->total == 1 && d->complete ? 100 : 0;
     }
     if (is_animated(d->type)) {
         if (d->total == 0) {
@@ -710,4 +1117,58 @@ bool qr_decoder_sign_message(const qr_decoder_t *d, const char **path, size_t *p
     *msg = (const char *)d->arena + d->msg_off;
     *msg_len = d->msg_len;
     return true;
+}
+
+bool qr_is_wallet_descriptor(const qr_decoder_t *d)
+{
+    switch (d->type) {
+    case QR_TYPE_WALLET_SPECTER:
+    case QR_TYPE_WALLET_GENERIC:
+    case QR_TYPE_WALLET_CONFIGFILE:
+    case QR_TYPE_OUTPUT_UR:
+        return true;
+    case QR_TYPE_BYTES_UR: {
+        /* A setup file: "policy:", "format:" and "derivation:" in it. */
+        const uint8_t *b;
+        size_t n;
+        if (!d->complete || !ur_bstr(d, false, &b, &n) || !py_utf8_valid(b, n)) {
+            return false;
+        }
+        const char *t = (const char *)b;
+        return py_contains(t, n, "policy:", true) && py_contains(t, n, "format:", true) &&
+               py_contains(t, n, "derivation:", true);
+    }
+    default:
+        return false;
+    }
+}
+
+bool qr_decoder_descriptor(const qr_decoder_t *d, char *out, size_t cap)
+{
+    if (!d->complete || cap == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    const char *frame = (const char *)d->arena;
+    switch (d->type) {
+    case QR_TYPE_WALLET_SPECTER:
+        return specter_json(d, out, cap) == SJ_OK;
+    case QR_TYPE_WALLET_GENERIC:
+        if (d->frame_len >= cap || memchr(frame, '\0', d->frame_len) != NULL) {
+            return false;
+        }
+        memcpy(out, frame, d->frame_len);
+        out[d->frame_len] = '\0';
+        return true;
+    case QR_TYPE_WALLET_CONFIGFILE:
+        return desc_from_setup_file(frame, d->frame_len, out, cap);
+    case QR_TYPE_BYTES_UR: {
+        const uint8_t *b;
+        size_t n;
+        return qr_is_wallet_descriptor(d) && ur_bstr(d, false, &b, &n) &&
+               desc_from_setup_file((const char *)b, n, out, cap);
+    }
+    default:
+        return false;   /* crypto-output: not decoded (qr-decode.h) */
+    }
 }

@@ -61,15 +61,15 @@ static bool is_alnum(char c)
 }
 
 /* Python's `$`: the end, or just before a newline that ends the string. */
-static size_t dollar_end(const char *s, size_t len)
+size_t qr_dollar_end(const char *s, size_t len)
 {
     return (len > 0 && s[len - 1] == '\n') ? len - 1 : len;
 }
 
 /* `^p(\d+)of(\d+) `, IGNORECASE. Where the match ends, or 0. The numbers
    are given back as text. */
-static size_t match_pxofy(const char *s, size_t len,
-                          const char **x, size_t *xn, const char **y, size_t *yn)
+size_t qr_match_pxofy(const char *s, size_t len,
+                      const char **x, size_t *xn, const char **y, size_t *yn)
 {
     size_t i = 0;
     if (len < 1 || (s[0] != 'p' && s[0] != 'P')) {
@@ -97,11 +97,11 @@ static bool is_specter_psbt(const char *s, size_t len)
 {
     const char *x, *y;
     size_t xn, yn;
-    const size_t start = match_pxofy(s, len, &x, &xn, &y, &yn);
+    const size_t start = qr_match_pxofy(s, len, &x, &xn, &y, &yn);
     if (start == 0) {
         return false;
     }
-    const size_t end = dollar_end(s, len);
+    const size_t end = qr_dollar_end(s, len);
     if (end <= start) {
         return false;
     }
@@ -199,7 +199,7 @@ static bool is_bitcoin_address(const char *s, size_t len)
     } else {
         return false;
     }
-    const size_t end = dollar_end(s, len);
+    const size_t end = qr_dollar_end(s, len);
     if (end < p + 25 || end > p + 62) {
         return false;
     }
@@ -271,7 +271,7 @@ qr_type_t qr_detect(const uint8_t *data, size_t len)
 
         const char *x, *y;
         size_t xn, yn;
-        if (match_pxofy(s, len, &x, &xn, &y, &yn) > 0) return QR_TYPE_WALLET_SPECTER;
+        if (qr_match_pxofy(s, len, &x, &xn, &y, &yn) > 0) return QR_TYPE_WALLET_SPECTER;
         if (is_specter_wallet_json(s, len)) return QR_TYPE_WALLET_SPECTER;
         if (py_contains(s, len, "multisig setup file", true)) return QR_TYPE_WALLET_CONFIGFILE;
         if (py_contains(s, len, "sortedmulti", false)) return QR_TYPE_WALLET_GENERIC;

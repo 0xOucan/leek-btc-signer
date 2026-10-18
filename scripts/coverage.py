@@ -66,6 +66,7 @@ DONE = {
     "ScanInvalidQRTypeView": "sim/test_scan.c; qemu-flow scan-invalid",
     "ScanPSBTView": "a seed's Scan transaction, wrong type refused: test_psbt_flows.c",
     "ScanAddressView": "refuses other codes: test_tools_flows.c; qemu-flow verify-address",
+    "ScanWalletDescriptorView": "123 descriptor scans as SeedSigner's DecodeQR (test_descriptor.c); refuses other codes: test_multisig_flows.c; qemu-flow multisig-explorer",
     # Seeds: SeedSigner's tests/test_flows_seed.py, ported in sim/test_seed_flows.c
     "SeedsMenuView": "test_seed_flows.c (redirect with no seeds, list with one); qemu-flow seed-lifecycle",
     "SeedMnemonicEntryView": "test_mnemonic_entry_flow, 12 and 24 words typed key by key: test_seed_flows.c",
@@ -89,9 +90,11 @@ DONE = {
     # Address verification: SeedSigner's test__verify_address__singlesig__flow,
     # and 144 addresses from its explorer's lists found at their index
     "AddressVerificationStartView": "single sig, nested, P2WSH routes: test_tools_flows.c; qemu-flow verify-address",
-    "AddressVerificationSigTypeView": "nested segwit, BACK: test_tools_flows.c",
+    "AddressVerificationSigTypeView": "nested segwit, BACK, Multisig: test_tools_flows.c, test_multisig_flows.c",
+    "LoadMultisigWalletDescriptorView": "from address verification and PSBT change; Cancel to home or back to the change: test_multisig_flows.c",
+    "MultisigWalletDescriptorView": "policy and fingerprints as embit's for 17 descriptors (test_descriptor.c); each resume_main_flow's button, OK, BACK: test_multisig_flows.c; qemu-flow multisig-explorer",
     "SeedSelectSeedView": "loaded seeds, a seed loaded mid-flow: test_tools_flows.c; qemu-flow verify-address",
-    "SeedAddressVerificationView": "144 addresses at SeedSigner's index and branch, Skip 10, Cancel: test_tools_flows.c; qemu-flow verify-address",
+    "SeedAddressVerificationView": "144 addresses at SeedSigner's index and branch, Skip 10, Cancel: test_tools_flows.c; qemu-flow verify-address; multisig, test__verify_address__legacy_multisig_p2sh__flow and P2WSH: test_multisig_flows.c",
     "SeedAddressVerificationSuccessView": "test_tools_flows.c; qemu-flow verify-address",
     # BIP-85 child seeds: every child mnemonic SeedSigner's code derived
     "SeedBIP85SelectNumWordsView": "test_seed_flows.c",
@@ -127,7 +130,8 @@ DONE = {
     "PSBTHighFeeWarningView": "the sweep, 21 PSBTs: test_psbt_flows.c",
     "PSBTMathView": "the sweep; BACK skips the warnings: test_psbt_flows.c; qemu-flow psbt-sign",
     "PSBTAddressDetailsView": "every recipient's address and amount, the sweep: test_psbt_flows.c; qemu-flow psbt-sign",
-    "PSBTChangeDetailsView": "every change output and path, the sweep; multisig skips verification until descriptors (T47): test_psbt_flows.c",
+    "PSBTChangeDetailsView": "every change output and path, the sweep: test_psbt_flows.c; multisig change verified against a scanned descriptor, every verify_multisig_output() SeedSigner's tests make: test_multisig_flows.c",
+    "PSBTAddressVerificationFailedView": "a descriptor that does not own the change: test_multisig_flows.c",
     "PSBTSeedCannotSignView": "test_wrong_seed_routes_back_to_seed_selection_flow: test_psbt_flows.c",
     "PSBTOutputOwnershipClaimFailedView": "test_forged_output_claim_terminates_signing_flow: test_psbt_flows.c",
     "PSBTInputOwnershipClaimFailedView": "test_forged_input_claim_terminates_signing_flow: test_psbt_flows.c",
@@ -149,7 +153,7 @@ DONE = {
     "ToolsCalcFinalWordDoneView": "load and discard: test_tools_flows.c",
     # The address explorer: SeedSigner's test_flows_tools.py cases, plus every
     # address list its own explorer made (960 addresses)
-    "ToolsAddressExplorerSelectSourceView": "test__address_explorer__flow, loadseed sideflow, wrong QR type: test_tools_flows.c; qemu-flow address-explorer",
+    "ToolsAddressExplorerSelectSourceView": "test__address_explorer__flow, loadseed sideflow, wrong QR type: test_tools_flows.c; qemu-flow address-explorer; test__address_explorer__legacy_multisig_p2sh__flow: test_multisig_flows.c",
     "ToolsAddressExplorerAddressTypeView": "all four back_button scenarios: test_tools_flows.c; qemu-flow address-explorer",
     "ToolsAddressExplorerAddressListView": "48 lists, 960 addresses as SeedSigner's, pages and BACK: test_tools_flows.c; qemu-flow address-explorer",
     "ToolsAddressExplorerAddressView": "returns to the list at the address: test_tools_flows.c; qemu-flow address-explorer",
