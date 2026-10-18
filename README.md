@@ -5,9 +5,13 @@
 small board: a 1.5" monochrome OLED, a rotary encoder, four buttons, and a camera
 for QR codes. The seed lives in RAM only. Unplug it and the seed is gone.
 
-> **Status: in development. Not for real funds.** The Bitcoin core, PSBT
-> signing and the QR layer are done and checked against SeedSigner itself. The
-> screens and the camera are next. Nothing has run on the physical board yet.
+> **Status: in development. Not for real funds.**
+>
+> **This port has not been tested on the physical board yet.** Everything
+> so far is proven on the host and in QEMU against SeedSigner's own code:
+> 104 of SeedSigner's 109 views, the Bitcoin core, PSBT signing and every QR
+> format. The five views left need the camera and the board. Board testing
+> and a demo on real hardware are coming soon.
 
 ![The UI on the 1.5" 128x128 OLED, rendered by the host build](docs/img/oled128.png)
 
